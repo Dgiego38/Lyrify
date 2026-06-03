@@ -2,14 +2,12 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <!-- Empêche le zoom automatique sur iPhone pour garder un effet "App" -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Lyrify</title>
     
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
 
-    <!-- Optimisations spécifiques iOS / iPhone -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Lyrify">
@@ -17,31 +15,38 @@
 </head>
 <body>
 
-    <!-- Barre supérieure adaptée à l'encoche de l'iPhone -->
-    <header>
-        <h1>Lyrify</h1>
-    </header>
+    <section id="welcome-screen" class="hidden">
+        <div class="welcome-content">
+            <span class="emoji">👋</span>
+            <h1>Bonjour !</h1>
+            <p>Bienvenue sur <strong>Lyrify</strong>. L'application qui affiche vos paroles en temps réel pendant que vous écoutez votre musique sur Spotify.</p>
+            <button id="welcome-login-btn">Se connecter avec Spotify</button>
+        </div>
+    </section>
 
-    <main id="app">
-        <!-- Zone Connexion / Musique en cours -->
-        <section id="player-section">
-            <div id="track-card" class="hidden">
-                <img id="album-art" src="" alt="Album Art">
-                <div class="track-info">
-                    <h2 id="track-title">Aucune musique</h2>
-                    <p id="track-artist">Connectez votre Spotify pour commencer</p>
+    <div id="main-app" class="hidden">
+        <header>
+            <h1>Lyrify</h1>
+        </header>
+
+        <main>
+            <section id="player-section">
+                <div id="track-card">
+                    <img id="album-art" src="https://via.placeholder.com/60" alt="Album Art">
+                    <div class="track-info">
+                        <h2 id="track-title">Aucune musique</h2>
+                        <p id="track-artist">Lancez un morceau sur Spotify</p>
+                    </div>
                 </div>
-            </div>
-            <button id="login-btn">Se connecter avec Spotify</button>
-        </section>
+            </section>
 
-        <!-- Zone Paroles défilantes -->
-        <section id="lyrics-section">
-            <div id="lyrics-container">
-                <p class="placeholder-text">Les paroles s'afficheront ici...</p>
-            </div>
-        </section>
-    </main>
+            <section id="lyrics-section">
+                <div id="lyrics-container">
+                    <p class="placeholder-text">Recherche de la musique en cours...</p>
+                </div>
+            </section>
+        </main>
+    </div>
 
     <script src="app.js"></script>
 </body>
