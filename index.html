@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <!-- Empêche le zoom automatique sur iPhone pour garder un effet "App" -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Lyrify</title>
+    
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Optimisations spécifiques iOS / iPhone -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Lyrify">
+    <link rel="apple-touch-icon" href="icons/icon-512.png">
+</head>
+<body>
+
+    <!-- Barre supérieure adaptée à l'encoche de l'iPhone -->
+    <header>
+        <h1>Lyrify</h1>
+    </header>
+
+    <main id="app">
+        <!-- Zone Connexion / Musique en cours -->
+        <section id="player-section">
+            <div id="track-card" class="hidden">
+                <img id="album-art" src="" alt="Album Art">
+                <div class="track-info">
+                    <h2 id="track-title">Aucune musique</h2>
+                    <p id="track-artist">Connectez votre Spotify pour commencer</p>
+                </div>
+            </div>
+            <button id="login-btn">Se connecter avec Spotify</button>
+        </section>
+
+        <!-- Zone Paroles défilantes -->
+        <section id="lyrics-section">
+            <div id="lyrics-container">
+                <p class="placeholder-text">Les paroles s'afficheront ici...</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
