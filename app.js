@@ -45,7 +45,6 @@ function initApp() {
 window.addEventListener('DOMContentLoaded', initApp);
 
 // 2. FORCE REFRESH À CHAQUE OUVERTURE SUR IPHONE (ANTI-FREEZE)
-// Tue la file d'attente et revérifie tout dès que la PWA repasse au premier plan
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
         console.log("App réouverte, actualisation forcée du statut...");
@@ -55,7 +54,7 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
-// 3. BOUTON DE CONNEXION (Flux Implicit Grant)
+// 3. BOUTON DE CONNEXION (Flux Implicit Grant obligatoirement avec response_type=token)
 loginBtn.addEventListener('click', () => {
     const authUrl = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(SCOPES)}&response_type=token&show_dialog=true`;
     window.location.href = authUrl;
@@ -66,7 +65,6 @@ function startTrackingSpotify(token) {
     if (spotifyInterval) clearInterval(spotifyInterval);
     
     checkCurrentTrack(token);
-    // Vérification toutes les 5 secondes
     spotifyInterval = setInterval(() => checkCurrentTrack(token), 5000);
 }
 
@@ -140,7 +138,7 @@ Le morceau détecté est bien :
 
 [Refrain]
 Ça s'affiche directement sur ton iPhone !
-Tout est fluide, le design s'adapté à l'encoche.
-Et maintenant, l'app se rafraîchit toute seule à l'ouverture !`;
+Tout est fluide, le design s'adapte à l'encoche.
+L'authentification utilise bien le jeton direct !`;
     }, 1000);
 }
