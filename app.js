@@ -1,6 +1,6 @@
 // CONFIGURATION SPOTIFY
 const CLIENT_ID = 'bca08c406d4847d6ae1e56c04894fbcb'; 
-const REDIRECT_URI = window.location.origin + window.location.pathname; // S'adapte sur localhost et GitHub Pages
+const REDIRECT_URI = window.location.origin + window.location.pathname; 
 const SCOPES = 'user-read-currently-playing user-read-playback-state';
 
 // ÉLÉMENTS DU DOM
@@ -8,8 +8,11 @@ const welcomeScreen = document.getElementById('welcome-screen');
 const mainApp = document.getElementById('main-app');
 const loginBtn = document.getElementById('welcome-login-btn');
 
+let spotifyInterval = null;
+let lastTrackId = "";
+
 // 1. GESTION DU CYCLE DE VIE (PREMIÈRE VISITE & AUTH)
-window.addEventListener('DOMContentLoaded', () => {
+function initApp() {
     const hash = window.location.hash;
     let token = localStorage.getItem('spotify_token');
 
@@ -18,38 +21,53 @@ window.addEventListener('DOMContentLoaded', () => {
         const params = new URLSearchParams(hash.substring(1));
         token = params.get('access_token');
         localStorage.setItem('spotify_token', token);
-        localStorage.setItem('has_visited', 'true'); // Enregistre le passage
-        window.location.hash = ''; // Nettoie l'URL
+        localStorage.setItem('has_visited', 'true'); 
+        window.location.hash = ''; 
     }
 
     const hasVisited = localStorage.getItem('has_visited');
 
     if (!hasVisited && !token) {
-        // Premier arrivage : on montre l'écran d'accueil
         welcomeScreen.classList.remove('hidden');
+        mainApp.classList.add('hidden');
     } else {
-        // Déjà venu : on bascule sur l'app directement
+        welcomeScreen.classList.add('hidden');
         mainApp.classList.remove('hidden');
         if (token) {
             startTrackingSpotify(token);
         } else {
-            // Si le token manque, on remontre l'accueil pour forcer la connexion
             welcomeScreen.classList.remove('hidden');
+            mainApp.classList.add('hidden');
         }
+    }
+}
+
+window.addEventListener('DOMContentLoaded', initApp);
+
+// 2. FORCE REFRESH À CHAQUE OUVERTURE SUR IPHONE (ANTI-FREEZE)
+// Tue la file d'attente et revérifie tout dès que la PWA repasse au premier plan
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        console.log("App réouverte, actualisation forcée du statut...");
+        if (spotifyInterval) clearInterval(spotifyInterval);
+        lastTrackId = ""; // Force le rafraîchissement des paroles
+        initApp();
     }
 });
 
-// 2. BOUTON DE CONNEXION (Flux Implicit Grant)
+// 3. BOUTON DE CONNEXION (Flux Implicit Grant)
 loginBtn.addEventListener('click', () => {
     const authUrl = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(SCOPES)}&response_type=token&show_dialog=true`;
     window.location.href = authUrl;
 });
 
-// 3. SUIVI TEMPS RÉEL SPOTIFY
+// 4. SUIVI TEMPS RÉEL SPOTIFY
 function startTrackingSpotify(token) {
+    if (spotifyInterval) clearInterval(spotifyInterval);
+    
     checkCurrentTrack(token);
-    // Vérification toutes les 5 secondes pour économiser de la batterie sur iPhone
-    setInterval(() => checkCurrentTrack(token), 5000);
+    // Vérification toutes les 5 secondes
+    spotifyInterval = setInterval(() => checkCurrentTrack(token), 5000);
 }
 
 async function checkCurrentTrack(token) {
@@ -84,8 +102,7 @@ async function checkCurrentTrack(token) {
     }
 }
 
-// 4. MISE À JOUR DE L'INTERFACE GRAPHIQUE
-let lastTrackId = "";
+// 5. MISE À JOUR DE L'INTERFACE GRAPHIQUE
 function updatePlayerUI(track) {
     const titleEl = document.getElementById('track-title');
     const artistEl = document.getElementById('track-artist');
@@ -98,7 +115,6 @@ function updatePlayerUI(track) {
         return;
     }
 
-    // On ne met à jour le texte et les paroles que si le morceau a changé
     const currentTrackId = `${track.title}-${track.artist}`;
     if (lastTrackId !== currentTrackId) {
         lastTrackId = currentTrackId;
@@ -111,12 +127,11 @@ function updatePlayerUI(track) {
     }
 }
 
-// 5. RÉCUPÉRATION DES PAROLES (Simulation temporaire)
+// 6. RÉCUPÉRATION DES PAROLES (Simulation temporaire)
 function fetchLyrics(title, artist) {
     const container = document.getElementById('lyrics-container');
     container.innerHTML = `<p class="placeholder-text">Recherche des paroles...</p>`;
     
-    // Démo visuelle en attendant l'API de paroles définitive
     setTimeout(() => {
         container.innerText = `[Couplet 1]
 Voici un exemple de paroles pour tester Lyrify.
@@ -125,7 +140,7 @@ Le morceau détecté est bien :
 
 [Refrain]
 Ça s'affiche directement sur ton iPhone !
-Tout est fluide, le design s'adapte à l'encoche.
-Prêt pour l'étape suivante.`;
+Tout est fluide, le design s'adapté à l'encoche.
+Et maintenant, l'app se rafraîchit toute seule à l'ouverture !`;
     }, 1000);
 }
