@@ -1,9 +1,9 @@
-/* Variables de design (Style sombre type Spotify) */
+/* Variables de design (Style sombre type Spotify / Apple Music Lyrics) */
 :root {
-    --bg-color: #121212;
-    --card-color: #181818;
+    --bg-color: #000000; /* Noir pur pour faire ressortir l'effet Apple Music */
+    --card-color: #121212;
     --text-main: #ffffff;
-    --text-muted: #b3b3b3;
+    --text-muted: rgba(255, 255, 255, 0.4);
     --spotify-green: #1db954;
 }
 
@@ -11,7 +11,7 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    -webkit-tap-highlight-color: transparent; /* Désactive le flash gris au clic sur iPhone */
+    -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -21,7 +21,6 @@ body {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    /* Prise en compte de l'encoche et de la barre du bas de l'iPhone */
     padding-top: env(safe-area-inset-top, 20px);
     padding-bottom: env(safe-area-inset-bottom, 20px);
     overflow: hidden;
@@ -30,7 +29,7 @@ body {
 header {
     padding: 15px;
     text-align: center;
-    border-bottom: 1px solid #282828;
+    border-bottom: 1px solid #1c1c1e;
 }
 
 header h1 {
@@ -45,6 +44,20 @@ main {
     flex-direction: column;
     padding: 20px;
     overflow: hidden;
+}
+
+.app-logo {
+    font-size: 4.5rem;
+    width: 100px;
+    height: 100px;
+    background: var(--card-color);
+    border-radius: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 25px auto;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    border: 2px solid var(--spotify-green);
 }
 
 /* Zone du lecteur */
@@ -87,11 +100,10 @@ main {
 
 #track-artist {
     font-size: 0.85rem;
-    color: var(--text-muted);
+    color: rgba(255, 255, 255, 0.6);
     margin-top: 2px;
 }
 
-/* Boutons */
 button {
     background-color: var(--spotify-green);
     color: white;
@@ -106,42 +118,64 @@ button {
 }
 
 button:active {
-    transform: scale(0.95); /* Effet d'enfoncement haptique sur iPhone */
+    transform: scale(0.95);
 }
 
-/* Zone des Paroles défilantes */
+/* CONTENEUR STYLE APPLE MUSIC LYRICS */
 #lyrics-section {
     flex: 1;
-    background: var(--card-color);
-    border-radius: 16px;
-    padding: 20px;
-    overflow-y: auto; /* Permet le défilement uniquement des paroles */
-    -webkit-overflow-scrolling: touch; /* Défilement fluide sur iOS */
+    background: transparent;
+    overflow-y: scroll;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    padding: 40vh 0; /* Permet à la ligne active de toujours se centrer à l'écran */
+    scrollbar-width: none; /* Cache la scrollbar sur Firefox */
+}
+
+#lyrics-section::-webkit-scrollbar {
+    display: none; /* Cache la scrollbar sur iPhone/Chrome */
 }
 
 #lyrics-container {
-    font-size: 1.4rem;
-    line-height: 1.6;
-    font-weight: 700;
-    white-space: pre-line; /* Respecte les sauts de ligne des paroles */
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* Style de chaque ligne de paroles */
+.lyric-line {
+    font-size: 1.6rem;
+    line-height: 1.4;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--text-muted);
+    transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+    transform: scale(0.95);
+    transform-origin: left center;
+    cursor: pointer;
+}
+
+/* Ligne active en cours de chant (Effet Apple Music) */
+.lyric-line.active {
+    color: var(--text-main);
+    transform: scale(1.05);
+    text-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
 }
 
 .placeholder-text {
-    color: var(--text-muted);
+    color: rgba(255, 255, 255, 0.5);
     text-align: center;
-    font-size: 1rem;
-    margin-top: 40px;
+    font-size: 1.1rem;
     font-weight: normal;
 }
 
-/* Écran de bienvenue */
 #welcome-screen {
     position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
-    background-color: var(--bg-color);
+    background-color: #121212;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -154,37 +188,17 @@ button:active {
     max-width: 400px;
 }
 
-.welcome-content .emoji {
-    font-size: 4rem;
-    display: block;
-    margin-bottom: 20px;
-    animation: wave 1.2s infinite;
-    transform-origin: 70% 70%;
-}
-
 .welcome-content h1 {
-    font-size: 2.5rem;
+    font-size: 2.2rem;
     margin-bottom: 15px;
     font-weight: 800;
 }
 
 .welcome-content p {
-    color: var(--text-muted);
-    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 1.05rem;
     line-height: 1.5;
     margin-bottom: 40px;
-}
-
-/* Animation de la main */
-@keyframes wave {
-    0% { transform: rotate( 0.0deg) }
-    10% { transform: rotate(14.0deg) }
-    20% { transform: rotate(-8.0deg) }
-    30% { transform: rotate(14.0deg) }
-    40% { transform: rotate(-4.0deg) }
-    50% { transform: rotate(10.0deg) }
-    60% { transform: rotate( 0.0deg) }
-    100% { transform: rotate( 0.0deg) }
 }
 
 .hidden {
