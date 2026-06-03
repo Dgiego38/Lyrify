@@ -21,7 +21,7 @@ body {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    /* Prise en compte de l'encoche et du bas de l'iPhone */
+    /* Prise en compte de l'encoche et de la barre du bas de l'iPhone */
     padding-top: env(safe-area-inset-top, 20px);
     padding-bottom: env(safe-area-inset-bottom, 20px);
     overflow: hidden;
@@ -82,14 +82,16 @@ main {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-weight: 700;
 }
 
 #track-artist {
     font-size: 0.85rem;
     color: var(--text-muted);
+    margin-top: 2px;
 }
 
-/* Bouton Spotify personnalisé */
+/* Boutons */
 button {
     background-color: var(--spotify-green);
     color: white;
@@ -104,7 +106,7 @@ button {
 }
 
 button:active {
-    transform: scale(0.95); /* Effet d'enfoncement natif sur iPhone */
+    transform: scale(0.95); /* Effet d'enfoncement haptique sur iPhone */
 }
 
 /* Zone des Paroles défilantes */
@@ -113,14 +115,15 @@ button:active {
     background: var(--card-color);
     border-radius: 16px;
     padding: 20px;
-    overflow-y: auto; /* Permet le défilement uniquement ici */
-    -webkit-overflow-scrolling: touch; /* Défilement fluide "élastique" sur iOS */
+    overflow-y: auto; /* Permet le défilement uniquement des paroles */
+    -webkit-overflow-scrolling: touch; /* Défilement fluide sur iOS */
 }
 
 #lyrics-container {
-    font-size: 1.25rem;
+    font-size: 1.4rem;
     line-height: 1.6;
-    font-weight: 600;
+    font-weight: 700;
+    white-space: pre-line; /* Respecte les sauts de ligne des paroles */
 }
 
 .placeholder-text {
@@ -128,6 +131,60 @@ button:active {
     text-align: center;
     font-size: 1rem;
     margin-top: 40px;
+    font-weight: normal;
+}
+
+/* Écran de bienvenue */
+#welcome-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: var(--bg-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+    padding: 30px;
+}
+
+.welcome-content {
+    text-align: center;
+    max-width: 400px;
+}
+
+.welcome-content .emoji {
+    font-size: 4rem;
+    display: block;
+    margin-bottom: 20px;
+    animation: wave 1.2s infinite;
+    transform-origin: 70% 70%;
+}
+
+.welcome-content h1 {
+    font-size: 2.5rem;
+    margin-bottom: 15px;
+    font-weight: 800;
+}
+
+.welcome-content p {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    line-height: 1.5;
+    margin-bottom: 40px;
+}
+
+/* Animation de la main */
+@keyframes wave {
+    0% { transform: rotate( 0.0deg) }
+    10% { transform: rotate(14.0deg) }
+    20% { transform: rotate(-8.0deg) }
+    30% { transform: rotate(14.0deg) }
+    40% { transform: rotate(-4.0deg) }
+    50% { transform: rotate(10.0deg) }
+    60% { transform: rotate( 0.0deg) }
+    100% { transform: rotate( 0.0deg) }
 }
 
 .hidden {
