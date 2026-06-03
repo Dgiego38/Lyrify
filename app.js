@@ -1,5 +1,5 @@
-// CONFIGURATION SPOTIFY (À remplacer par vos clés du Dashboard Spotify Developer)
-const CLIENT_ID = 'VOTRE_CLIENT_ID_SPOTIFY'; 
+// CONFIGURATION SPOTIFY
+const CLIENT_ID = 'bca08c406d4847d6ae1e56c04894fbcb'; 
 const REDIRECT_URI = window.location.origin + window.location.pathname; // S'adapte sur localhost et GitHub Pages
 const SCOPES = 'user-read-currently-playing user-read-playback-state';
 
@@ -116,7 +116,7 @@ function fetchLyrics(title, artist) {
     const container = document.getElementById('lyrics-container');
     container.innerHTML = `<p class="placeholder-text">Recherche des paroles...</p>`;
     
-    // Démo visuelle en attendant l'API Genius définitive
+    // Démo visuelle en attendant l'API de paroles définitive
     setTimeout(() => {
         container.innerText = `[Couplet 1]
 Voici un exemple de paroles pour tester Lyrify.
