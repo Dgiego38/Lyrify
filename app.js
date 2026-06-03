@@ -116,7 +116,7 @@ loginBtn.addEventListener('click', async () => {
         code_challenge: codeChallenge
     });
 
-    window.location.href = `https://accounts.spotify.com/authorize?client_id=${params.toString()}`;
+    window.location.href = `https://accounts.spotify.com/authorize?${params.toString()}`;
 });
 
 // 5. SUIVI TEMPS RÉEL SPOTIFY
