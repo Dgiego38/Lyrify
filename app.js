@@ -11,18 +11,34 @@ const loginBtn = document.getElementById('welcome-login-btn');
 let spotifyInterval = null;
 let lastTrackId = "";
 
-// 1. GESTION DU CYCLE DE VIE (PREMIÈRE VISITE & AUTH)
-function initApp() {
-    const hash = window.location.hash;
+// OUTILS DE SÉCURITÉ CRYPTO POUR FLUX CODE PKCE
+function generateRandomString(length) {
+    let text = '';
+    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    for (let i = 0; i < length; i++) {
+        text += possible.charAt(Math.floor(Math.random() * possible.length));
+    }
+    return text;
+}
+
+async function generateCodeChallenge(codeVerifier) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(codeVerifier);
+    const digest = await window.crypto.subtle.digest('SHA-256', data);
+    return btoa(String.fromCharCode.apply(null, new Uint8Array(digest)))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// 1. GESTION DU CYCLE DE VIE (PREMIÈRE VISITE, RETOUR AUTH & CODES)
+async function initApp() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
     let token = localStorage.getItem('spotify_token');
 
-    // Si on détecte le token de retour Spotify dans l'URL
-    if (hash) {
-        const params = new URLSearchParams(hash.substring(1));
-        token = params.get('access_token');
-        localStorage.setItem('spotify_token', token);
-        localStorage.setItem('has_visited', 'true'); 
-        window.location.hash = ''; 
+    // Si on détecte le paramètre ?code= de retour de Spotify
+    if (code) {
+        window.history.replaceState({}, document.title, window.location.pathname); // Nettoie immédiatement l'URL (?code=...)
+        token = await exchangeCodeForToken(code);
     }
 
     const hasVisited = localStorage.getItem('has_visited');
@@ -44,23 +60,66 @@ function initApp() {
 
 window.addEventListener('DOMContentLoaded', initApp);
 
-// 2. FORCE REFRESH À CHAQUE OUVERTURE SUR IPHONE (ANTI-FREEZE)
+// 2. ÉCHANGE DU CODE CONTRE UN ACCESS TOKEN (POST API)
+async function exchangeCodeForToken(code) {
+    const codeVerifier = localStorage.getItem('code_verifier');
+
+    const payload = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            client_id: CLIENT_ID,
+            grant_type: 'authorization_code',
+            code: code,
+            redirect_uri: REDIRECT_URI,
+            code_verifier: codeVerifier
+        }),
+    };
+
+    try {
+        const body = await fetch('https://accounts.spotify.com/api/token', payload);
+        const response = await body.json();
+        
+        if (response.access_token) {
+            localStorage.setItem('spotify_token', response.access_token);
+            localStorage.setItem('has_visited', 'true');
+            return response.access_token;
+        }
+    } catch (error) {
+        console.error("Erreur lors de l'échange du jeton :", error);
+    }
+    return null;
+}
+
+// 3. FORCE REFRESH À CHAQUE OUVERTURE SUR IPHONE (ANTI-FREEZE)
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-        console.log("App réouverte, actualisation forcée du statut...");
         if (spotifyInterval) clearInterval(spotifyInterval);
-        lastTrackId = ""; // Force le rafraîchissement des paroles
+        lastTrackId = ""; 
         initApp();
     }
 });
 
-// 3. BOUTON DE CONNEXION (Flux Implicit Grant obligatoirement avec response_type=token)
-loginBtn.addEventListener('click', () => {
-    const authUrl = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(SCOPES)}&response_type=token&show_dialog=true`;
-    window.location.href = authUrl;
+// 4. BOUTON DE CONNEXION AVEC GENERATION PKCE (response_type=code)
+loginBtn.addEventListener('click', async () => {
+    const codeVerifier = generateRandomString(64);
+    const codeChallenge = await generateCodeChallenge(codeVerifier);
+    
+    localStorage.setItem('code_verifier', codeVerifier);
+
+    const params = new URLSearchParams({
+        response_type: 'code',
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        redirect_uri: REDIRECT_URI,
+        code_challenge_method: 'S256',
+        code_challenge: codeChallenge
+    });
+
+    window.location.href = `https://accounts.spotify.com/authorize?client_id=${params.toString()}`;
 });
 
-// 4. SUIVI TEMPS RÉEL SPOTIFY
+// 5. SUIVI TEMPS RÉEL SPOTIFY
 function startTrackingSpotify(token) {
     if (spotifyInterval) clearInterval(spotifyInterval);
     
@@ -74,14 +133,12 @@ async function checkCurrentTrack(token) {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
-        // Token expiré (401) -> Déconnexion et reset
         if (response.status === 401) {
             localStorage.removeItem('spotify_token');
             window.location.reload();
             return;
         }
 
-        // Aucune musique active (204)
         if (response.status === 204) {
             updatePlayerUI(null);
             return;
@@ -100,7 +157,7 @@ async function checkCurrentTrack(token) {
     }
 }
 
-// 5. MISE À JOUR DE L'INTERFACE GRAPHIQUE
+// 6. MISE À JOUR DE L'INTERFACE GRAPHIQUE
 function updatePlayerUI(track) {
     const titleEl = document.getElementById('track-title');
     const artistEl = document.getElementById('track-artist');
@@ -125,7 +182,7 @@ function updatePlayerUI(track) {
     }
 }
 
-// 6. RÉCUPÉRATION DES PAROLES (Simulation temporaire)
+// 7. RÉCUPÉRATION DES PAROLES (Simulation temporaire)
 function fetchLyrics(title, artist) {
     const container = document.getElementById('lyrics-container');
     container.innerHTML = `<p class="placeholder-text">Recherche des paroles...</p>`;
@@ -138,7 +195,6 @@ Le morceau détecté est bien :
 
 [Refrain]
 Ça s'affiche directement sur ton iPhone !
-Tout est fluide, le design s'adapte à l'encoche.
-L'authentification utilise bien le jeton direct !`;
+L'authentification sécurisée PKCE avec response_type=code fonctionne à merveille.`;
     }, 1000);
 }
