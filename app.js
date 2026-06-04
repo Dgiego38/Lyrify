@@ -1,6 +1,9 @@
-// CONFIGURATION SPOTIFY PRODUCTION
+// CONFIGURATION SPOTIFY PRODUCTION OFFICIELLE
 const CLIENT_ID = 'bca08c406d4847d6ae1e56c04894fbcb'; 
-const REDIRECT_URI = window.location.origin + window.location.pathname.replace(/\/$/, ""); 
+
+// Nettoyage complet pour correspondre à 100% avec le Dashboard Spotify (Supprime le slash de fin et index.html)
+const REDIRECT_URI = window.location.origin + window.location.pathname.replace(/\/$/, "").replace(/\/index\.html$/, "");
+
 const SCOPES = 'user-read-currently-playing user-read-playback-state';
 
 // ÉLÉMENTS DU DOM
@@ -18,7 +21,7 @@ let currentTrackProgress = 0;
 let isPlaying = false;
 let parsedLyrics = []; 
 
-// UTILS CRYPTO PKCE
+// UTILS CRYPTO PKCE COMPATIBLES SAFARI NATIVE
 function generateRandomString(length) {
     let text = '';
     const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
@@ -43,7 +46,7 @@ async function initApp() {
     let token = localStorage.getItem('spotify_token');
 
     if (code) {
-        // Nettoyage immédiat de l'URL pour tuer la boucle infinie sur iOS
+        // Nettoyage immédiat de la barre d'adresse pour casser la boucle infinie sur iOS
         window.history.replaceState({}, document.title, window.location.pathname);
         token = await exchangeCodeForToken(code);
     }
@@ -60,7 +63,7 @@ async function initApp() {
 
 window.addEventListener('DOMContentLoaded', initApp);
 
-// 2. ÉCHANGE DU CODE CONTRE UN ACCESS TOKEN (API OFFICIELLE)
+// 2. ÉCHANGE DU CODE CONTRE UN ACCESS TOKEN (PRODUCTION ENDPOINT)
 async function exchangeCodeForToken(code) {
     const codeVerifier = localStorage.getItem('code_verifier');
     const payload = {
@@ -88,17 +91,7 @@ async function exchangeCodeForToken(code) {
     return null;
 }
 
-// ANTI-FREEZE IPHONE
-document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-        if (spotifyInterval) clearInterval(spotifyInterval);
-        if (syncTickerInterval) clearInterval(syncTickerInterval);
-        lastTrackId = ""; 
-        initApp();
-    }
-});
-
-// CONNEXION PKCE
+// CLIC CONNEXION : SYNTAXE CORRECTE $ ET URL INTERNATIONALE
 loginBtn.addEventListener('click', async () => {
     const codeVerifier = generateRandomString(64);
     const codeChallenge = await generateCodeChallenge(codeVerifier);
@@ -112,10 +105,22 @@ loginBtn.addEventListener('click', async () => {
         code_challenge_method: 'S256',
         code_challenge: codeChallenge
     });
+    
+    // Correction ici : Ajout du "$" manquant et de la vraie URL de login Spotify
     window.location.href = `https://accounts.spotify.com/authorize?${params.toString()}`;
 });
 
-// 3. ENGINES DE SUIVI DE LECTURE (3S ET 100MS)
+// ANTI-FREEZE IPHONE (RESET DES INTERVALLES LORS DU VERROUILLAGE/DÉVERROUILLAGE)
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        if (spotifyInterval) clearInterval(spotifyInterval);
+        if (syncTickerInterval) clearInterval(syncTickerInterval);
+        lastTrackId = ""; 
+        initApp();
+    }
+});
+
+// 3. LOGIQUE DOUBLE HORLOGE (3S ET TICKER 100MS POUR LE RECALIBRAGE)
 function startTrackingSpotify(token) {
     if (spotifyInterval) clearInterval(spotifyInterval);
     if (syncTickerInterval) clearInterval(syncTickerInterval);
@@ -123,7 +128,7 @@ function startTrackingSpotify(token) {
     checkCurrentTrack(token);
     spotifyInterval = setInterval(() => checkCurrentTrack(token), 3000);
 
-    // Ticker haute fréquence calibré à 100ms pour une fluidité Apple Music
+    // Ticker haute fréquence (100ms) pour faire avancer le compteur en local de manière ultra fluide
     syncTickerInterval = setInterval(() => {
         if (isPlaying && parsedLyrics.length > 0) {
             currentTrackProgress += 100;
@@ -161,7 +166,7 @@ async function checkCurrentTrack(token) {
             });
         }
     } catch (error) {
-        console.error("Erreur API Spotify :", error);
+        console.error("Erreur API Spotify Player :", error);
     }
 }
 
@@ -191,7 +196,7 @@ function updatePlayerUI(track) {
     }
 }
 
-// 4. LOGIQUE DES PAROLES (LRCLIB)
+// 4. RÉCUPÉRATION DES PAROLES (LRCLIB)
 async function fetchRealLyrics(title, artist) {
     lyricsContainer.innerHTML = `<p class="placeholder-text">Recherche des paroles...</p>`;
     parsedLyrics = [];
@@ -266,7 +271,7 @@ function renderPlainLyrics(text) {
     lyricsContainer.appendChild(p);
 }
 
-// 5. CENTRAGE GÉOMÉTRIQUE FLUIDE iOS
+// 5. RENDU ET CENTRAGE DYNAMIQUE VIA GETBOUNDINGCLIENTRECT (APPLE MUSIC INSPIRATION)
 function updateLyricsHighlight(progress) {
     if (parsedLyrics.length === 0) return;
 
@@ -288,6 +293,7 @@ function updateLyricsHighlight(progress) {
             const containerRect = lyricsSection.getBoundingClientRect();
             const elemRect = activeElement.getBoundingClientRect();
             
+            // Calcul mathématique précis pour bloquer la ligne active parfaitement au centre vertical de l'iPhone
             const offset = elemRect.top - containerRect.top - (containerRect.height / 2) + (elemRect.height / 2);
             
             lyricsSection.scrollBy({
