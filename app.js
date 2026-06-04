@@ -56,6 +56,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // 2. BOUTON DE CONNEXION (Flux Implicit Grant - response_type=token)
 loginBtn.addEventListener('click', () => {
+    // Correction ici : ajout du $ devant {CLIENT_ID}
     const authUrl = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(SCOPES)}&response_type=token&show_dialog=true`;
     window.location.href = authUrl;
 });
