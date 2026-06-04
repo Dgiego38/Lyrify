@@ -19,14 +19,13 @@ jobs:
         with:
           node-version: 20
 
-      # LE SCRIPT CRÉE TOUT TOUT SEUL ICI
-      - name: Préparer la structure Capacitor pour iOS
+      - name: Préparer la structure et installer les outils
         run: |
-          # 1. Crée les fichiers de configuration manquants
+          # 1. Crée les fichiers de configuration de base
           echo '{"name": "lyrify", "version": "1.0.0", "dependencies": {"@capacitor/cli": "^6.0.0", "@capacitor/core": "^6.0.0", "@capacitor/ios": "^6.0.0"}}' > package.json
           echo '{"appId": "com.diego.lyrify", "appName": "Lyrify", "webDir": "www"}' > capacitor.config.json
           
-          # 2. Crée le dossier www et copie tes fichiers web dedans pour le compilateur Apple
+          # 2. Crée le dossier www indispensable pour Capacitor
           mkdir -p www
           cp index.html www/ 2>/dev/null || true
           cp login.html www/ 2>/dev/null || true
@@ -34,10 +33,17 @@ jobs:
           cp style.css www/ 2>/dev/null || true
           cp manifest.json www/ 2>/dev/null || true
 
-      - name: Installer les outils de build Apple
-        run: |
+          # 3. Installe les modules de Capacitor
           npm install
-          npx cap ios add || true
+
+      - name: Forcer la création du projet iOS natif
+        run: |
+          # Crée le dossier natif iOS Xcode que le Mac réclame
+          npx cap add ios
+
+      - name: Synchroniser les fichiers web
+        run: |
+          # Copie ton code javascript/html à l'intérieur de l'app iOS
           npx cap sync ios
 
       - name: Compiler en application iOS native avec Xcode
