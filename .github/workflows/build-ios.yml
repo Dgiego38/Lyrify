@@ -3,7 +3,7 @@ name: Build iOS IPA Direct
 on:
   push:
     branches: [ main, master ]
-  workflow_dispatch: # Te permet de lancer le bouton "Play" toi-même
+  workflow_dispatch:
 
 jobs:
   build:
@@ -19,22 +19,29 @@ jobs:
         with:
           node-version: 20
 
-      # On entre dans Lyrify-main pour faire toutes les installations
-      - name: Installer les dépendances (npm install)
+      # LE SCRIPT CRÉE TOUT TOUT SEUL ICI
+      - name: Préparer la structure Capacitor pour iOS
         run: |
-          cd Lyrify-main
-          npm install
-          npm install @capacitor/core @capacitor/cli @capacitor/ios
+          # 1. Crée les fichiers de configuration manquants
+          echo '{"name": "lyrify", "version": "1.0.0", "dependencies": {"@capacitor/cli": "^6.0.0", "@capacitor/core": "^6.0.0", "@capacitor/ios": "^6.0.0"}}' > package.json
+          echo '{"appId": "com.diego.lyrify", "appName": "Lyrify", "webDir": "www"}' > capacitor.config.json
+          
+          # 2. Crée le dossier www et copie tes fichiers web dedans pour le compilateur Apple
+          mkdir -p www
+          cp index.html www/ 2>/dev/null || true
+          cp login.html www/ 2>/dev/null || true
+          cp app.js www/ 2>/dev/null || true
+          cp style.css www/ 2>/dev/null || true
+          cp manifest.json www/ 2>/dev/null || true
 
-      - name: Initialiser et synchroniser Capacitor
+      - name: Installer les outils de build Apple
         run: |
-          cd Lyrify-main
+          npm install
           npx cap ios add || true
           npx cap sync ios
 
-      - name: Compiler le projet natif avec Xcode
+      - name: Compiler en application iOS native avec Xcode
         run: |
-          cd Lyrify-main
           xcodebuild -workspace ios/App/App.xcworkspace \
                      -scheme App \
                      -configuration Release \
@@ -42,14 +49,13 @@ jobs:
                      clean build \
                      CODE_SIGNING_ALLOWED=NO
 
-      - name: Créer le fichier IPA final pour ton iPhone
+      - name: Empaqueter l'application en fichier .IPA pour iPhone
         run: |
-          cd Lyrify-main
           mkdir -p Payload
           mv ios/App/build/Release-iphoneos/App.app Payload/
-          zip -r ../Lyrify-Apple.ipa Payload
+          zip -r Lyrify-Apple.ipa Payload
 
-      - name: Envoyer l'IPA sur GitHub
+      - name: Livrer le fichier IPA final
         uses: actions/upload-artifact@v4
         with:
           name: Lyrify-iOS-File
