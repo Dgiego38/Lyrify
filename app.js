@@ -1,9 +1,6 @@
-// CONFIGURATION SPOTIFY PRODUCTION OFFICIELLE
+// CONFIGURATION SPOTIFY
 const CLIENT_ID = 'bca08c406d4847d6ae1e56c04894fbcb'; 
-
-// Nettoyage complet pour correspondre à 100% avec le Dashboard Spotify (Supprime le slash de fin et index.html)
-const REDIRECT_URI = window.location.origin + window.location.pathname.replace(/\/$/, "").replace(/\/index\.html$/, "");
-
+const REDIRECT_URI = window.location.origin + window.location.pathname; 
 const SCOPES = 'user-read-currently-playing user-read-playback-state';
 
 // ÉLÉMENTS DU DOM
@@ -21,10 +18,10 @@ let currentTrackProgress = 0;
 let isPlaying = false;
 let parsedLyrics = []; 
 
-// UTILS CRYPTO PKCE COMPATIBLES SAFARI NATIVE
+// OUTILS CRYPTO PKCE
 function generateRandomString(length) {
     let text = '';
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     for (let i = 0; i < length; i++) {
         text += possible.charAt(Math.floor(Math.random() * possible.length));
     }
@@ -39,31 +36,40 @@ async function generateCodeChallenge(codeVerifier) {
         .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-// 1. INITIALISATION DE L'APPLICATION
+// 1. GESTION DU CYCLE DE VIE (PREMIÈRE VISITE, RETOUR AUTH & CODES)
 async function initApp() {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     let token = localStorage.getItem('spotify_token');
 
+    // Si on détecte le code de retour Spotify
     if (code) {
-        // Nettoyage immédiat de la barre d'adresse pour casser la boucle infinie sur iOS
-        window.history.replaceState({}, document.title, window.location.pathname);
+        // On récupère d'abord le token avec le code reçu
         token = await exchangeCodeForToken(code);
+        // Une fois le jeton validé et stocké, on nettoie proprement l'URL (?code=...)
+        window.history.replaceState({}, document.title, window.location.pathname);
     }
 
-    if (!token) {
+    const hasVisited = localStorage.getItem('has_visited');
+
+    if (!hasVisited && !token) {
         welcomeScreen.classList.remove('hidden');
         mainApp.classList.add('hidden');
     } else {
         welcomeScreen.classList.add('hidden');
         mainApp.classList.remove('hidden');
-        startTrackingSpotify(token);
+        if (token) {
+            startTrackingSpotify(token);
+        } else {
+            welcomeScreen.classList.remove('hidden');
+            mainApp.classList.add('hidden');
+        }
     }
 }
 
 window.addEventListener('DOMContentLoaded', initApp);
 
-// 2. ÉCHANGE DU CODE CONTRE UN ACCESS TOKEN (PRODUCTION ENDPOINT)
+// 2. ÉCHANGE DU CODE CONTRE UN ACCESS TOKEN (POST API)
 async function exchangeCodeForToken(code) {
     const codeVerifier = localStorage.getItem('code_verifier');
     const payload = {
@@ -79,11 +85,12 @@ async function exchangeCodeForToken(code) {
     };
 
     try {
-        const response = await fetch('https://accounts.spotify.com/api/token', payload);
-        const data = await response.json();
-        if (data.access_token) {
-            localStorage.setItem('spotify_token', data.access_token);
-            return data.access_token;
+        const body = await fetch('https://accounts.spotify.com/api/token', payload);
+        const response = await body.json();
+        if (response.access_token) {
+            localStorage.setItem('spotify_token', response.access_token);
+            localStorage.setItem('has_visited', 'true');
+            return response.access_token;
         }
     } catch (error) {
         console.error("Erreur d'échange de jeton :", error);
@@ -91,7 +98,17 @@ async function exchangeCodeForToken(code) {
     return null;
 }
 
-// CLIC CONNEXION : SYNTAXE CORRECTE $ ET URL INTERNATIONALE
+// FORCE REFRESH À CHAQUE OUVERTURE SUR IPHONE (ANTI-FREEZE)
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        if (spotifyInterval) clearInterval(spotifyInterval);
+        if (syncTickerInterval) clearInterval(syncTickerInterval);
+        lastTrackId = ""; 
+        initApp();
+    }
+});
+
+// BOUTON DE CONNEXION AVEC GENERATION PKCE
 loginBtn.addEventListener('click', async () => {
     const codeVerifier = generateRandomString(64);
     const codeChallenge = await generateCodeChallenge(codeVerifier);
@@ -105,36 +122,24 @@ loginBtn.addEventListener('click', async () => {
         code_challenge_method: 'S256',
         code_challenge: codeChallenge
     });
-    
-    // Correction ici : Ajout du "$" manquant et de la vraie URL de login Spotify
     window.location.href = `https://accounts.spotify.com/authorize?${params.toString()}`;
 });
 
-// ANTI-FREEZE IPHONE (RESET DES INTERVALLES LORS DU VERROUILLAGE/DÉVERROUILLAGE)
-document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-        if (spotifyInterval) clearInterval(spotifyInterval);
-        if (syncTickerInterval) clearInterval(syncTickerInterval);
-        lastTrackId = ""; 
-        initApp();
-    }
-});
-
-// 3. LOGIQUE DOUBLE HORLOGE (3S ET TICKER 100MS POUR LE RECALIBRAGE)
+// 3. SUIVI TEMPS RÉEL SPOTIFY & RECALIBRATION DU COMPTEUR
 function startTrackingSpotify(token) {
     if (spotifyInterval) clearInterval(spotifyInterval);
     if (syncTickerInterval) clearInterval(syncTickerInterval);
     
     checkCurrentTrack(token);
-    spotifyInterval = setInterval(() => checkCurrentTrack(token), 3000);
+    spotifyInterval = setInterval(() => checkCurrentTrack(token), 4000); // Recalibre toutes les 4s
 
-    // Ticker haute fréquence (100ms) pour faire avancer le compteur en local de manière ultra fluide
+    // Compteur local fluide (toutes les 200ms) pour caler les paroles au millième de seconde
     syncTickerInterval = setInterval(() => {
         if (isPlaying && parsedLyrics.length > 0) {
-            currentTrackProgress += 100;
+            currentTrackProgress += 200;
             updateLyricsHighlight(currentTrackProgress);
         }
-    }, 100);
+    }, 200);
 }
 
 async function checkCurrentTrack(token) {
@@ -157,7 +162,7 @@ async function checkCurrentTrack(token) {
         const data = await response.json();
         if (data && data.item) {
             isPlaying = data.is_playing;
-            currentTrackProgress = data.progress_ms; 
+            currentTrackProgress = data.progress_ms; // Ajustement sur le flux Spotify
 
             updatePlayerUI({
                 title: data.item.name,
@@ -166,7 +171,7 @@ async function checkCurrentTrack(token) {
             });
         }
     } catch (error) {
-        console.error("Erreur API Spotify Player :", error);
+        console.error("Erreur API Spotify :", error);
     }
 }
 
@@ -178,7 +183,7 @@ function updatePlayerUI(track) {
     if (!track) {
         titleEl.innerText = "Aucune musique";
         artistEl.innerText = "Lancez un morceau sur Spotify";
-        artEl.src = "https://placehold.co/60x60/121212/ffffff?text=Lyrify";
+        artEl.src = "https://via.placeholder.com/60";
         lyricsContainer.innerHTML = `<p class="placeholder-text">Lancez une musique sur Spotify pour voir les paroles.</p>`;
         parsedLyrics = [];
         return;
@@ -196,40 +201,34 @@ function updatePlayerUI(track) {
     }
 }
 
-// 4. RÉCUPÉRATION DES PAROLES (LRCLIB)
+// 4. RÉCUPÉRATION ET TRADUCTION DES VRAIES PAROLES SYNCHRONISÉES (API LRCLIB SECURISEE)
 async function fetchRealLyrics(title, artist) {
-    lyricsContainer.innerHTML = `<p class="placeholder-text">Recherche des paroles...</p>`;
+    lyricsContainer.innerHTML = `<p class="placeholder-text">Recherche des paroles synchronisées...</p>`;
     parsedLyrics = [];
 
     try {
-        const cleanTitle = title
-            .replace(/-\s*Remastered.*/i, '')
-            .replace(/-\s*Remaster.*/i, '')
-            .replace(/\(\s*feat\..*?\)/i, '')
-            .replace(/-\s*Single Version/i, '')
-            .trim();
-
+        // Nettoyage pour enlever les "(feat...)" ou "- Remaster" qui faussent la recherche
+        const cleanTitle = title.split(' - ')[0].split(' (')[0];
         const query = encodeURIComponent(`${cleanTitle} ${artist}`);
+        
+        // HTTPS obligatoire pour GitHub Pages
         const response = await fetch(`https://lrclib.net/api/search?q=${query}`);
         const data = await response.json();
 
-        if (data && data.length > 0) {
-            const matched = data.find(item => item.syncedLyrics);
-            if (matched) {
-                parseLrc(matched.syncedLyrics);
-                return;
-            } else if (data[0].plainLyrics) {
-                renderPlainLyrics(data[0].plainLyrics);
-                return;
-            }
+        if (data && data.length > 0 && data[0].syncedLyrics) {
+            parseLrc(data[0].syncedLyrics);
+        } else if (data && data.length > 0 && data[0].plainLyrics) {
+            renderPlainLyrics(data[0].plainLyrics);
+        } else {
+            lyricsContainer.innerHTML = `<p class="placeholder-text">Paroles indisponibles pour ce morceau 😢</p>`;
         }
-        lyricsContainer.innerHTML = `<p class="placeholder-text">Paroles indisponibles pour ce morceau 😢</p>`;
     } catch (error) {
         console.error("Erreur paroles :", error);
-        lyricsContainer.innerHTML = `<p class="placeholder-text">Erreur lors du chargement.</p>`;
+        lyricsContainer.innerHTML = `<p class="placeholder-text">Erreur lors du chargement des paroles.</p>`;
     }
 }
 
+// Découpe le format LRC [00:12.34] en millisecondes
 function parseLrc(lrcText) {
     parsedLyrics = [];
     lyricsContainer.innerHTML = "";
@@ -242,8 +241,7 @@ function parseLrc(lrcText) {
         if (match) {
             const minutes = parseInt(match[1]);
             const seconds = parseInt(match[2]);
-            const msStr = match[3];
-            const milliseconds = parseInt(msStr.length === 2 ? msStr + '0' : msStr);
+            const milliseconds = parseInt(match[3].padEnd(3, '0').substring(0, 3));
             
             const timeInMs = (minutes * 60 * 1000) + (seconds * 1000) + milliseconds;
             const text = line.replace(timeRegEx, '').trim();
@@ -271,7 +269,7 @@ function renderPlainLyrics(text) {
     lyricsContainer.appendChild(p);
 }
 
-// 5. RENDU ET CENTRAGE DYNAMIQUE VIA GETBOUNDINGCLIENTRECT (APPLE MUSIC INSPIRATION)
+// 5. ANIMATION ET CENTRAGE AUTO DE LA PAROLE ACTIVE
 function updateLyricsHighlight(progress) {
     if (parsedLyrics.length === 0) return;
 
@@ -290,16 +288,10 @@ function updateLyricsHighlight(progress) {
             document.querySelectorAll('.lyric-line.active').forEach(el => el.classList.remove('active'));
             activeElement.classList.add('active');
 
-            const containerRect = lyricsSection.getBoundingClientRect();
-            const elemRect = activeElement.getBoundingClientRect();
-            
-            // Calcul mathématique précis pour bloquer la ligne active parfaitement au centre vertical de l'iPhone
-            const offset = elemRect.top - containerRect.top - (containerRect.height / 2) + (elemRect.height / 2);
-            
-            lyricsSection.scrollBy({
-                top: offset,
-                behavior: 'smooth'
-            });
+            // Alignement au centre parfait de l'écran iPhone (effet Apple Music)
+            const offsetTop = activeElement.offsetTop;
+            const containerHeight = lyricsSection.clientHeight;
+            lyricsSection.scrollTop = offsetTop - (containerHeight / 2) + (activeElement.clientHeight / 2);
         }
     }
 }
