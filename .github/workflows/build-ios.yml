@@ -1,0 +1,56 @@
+name: Build iOS IPA Direct
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch: # Te permet de lancer le bouton "Play" toi-même
+
+jobs:
+  build:
+    name: Compile iOS Application
+    runs-on: macos-latest
+
+    steps:
+      - name: Récupérer le code de ton dépôt
+        uses: actions/checkout@v4
+
+      - name: Configurer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # On entre dans Lyrify-main pour faire toutes les installations
+      - name: Installer les dépendances (npm install)
+        run: |
+          cd Lyrify-main
+          npm install
+          npm install @capacitor/core @capacitor/cli @capacitor/ios
+
+      - name: Initialiser et synchroniser Capacitor
+        run: |
+          cd Lyrify-main
+          npx cap ios add || true
+          npx cap sync ios
+
+      - name: Compiler le projet natif avec Xcode
+        run: |
+          cd Lyrify-main
+          xcodebuild -workspace ios/App/App.xcworkspace \
+                     -scheme App \
+                     -configuration Release \
+                     -sdk iphoneos \
+                     clean build \
+                     CODE_SIGNING_ALLOWED=NO
+
+      - name: Créer le fichier IPA final pour ton iPhone
+        run: |
+          cd Lyrify-main
+          mkdir -p Payload
+          mv ios/App/build/Release-iphoneos/App.app Payload/
+          zip -r ../Lyrify-Apple.ipa Payload
+
+      - name: Envoyer l'IPA sur GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lyrify-iOS-File
+          path: Lyrify-Apple.ipa
