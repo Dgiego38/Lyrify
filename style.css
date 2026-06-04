@@ -141,13 +141,13 @@ button:active {
     transform: scale(0.95);
 }
 
-/* CONTENEUR STYLE APPLE MUSIC LYRICS */
+/* CONTENEUR STYLE APPLE MUSIC LYRICS NETTOYÉ */
 #lyrics-section {
-    flex: 1;
+    position: relative;
+    width: 100%;
     height: 50vh;
-    background: transparent;
+    flex: 1;
     overflow-y: scroll;
-    display: block;
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
     padding-top: 35vh;    
@@ -163,6 +163,7 @@ button:active {
     display: flex;
     flex-direction: column;
     gap: 24px;
+    width: 100%;
 }
 
 /* Style de chaque ligne de paroles */
