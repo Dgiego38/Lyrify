@@ -1,6 +1,6 @@
 // CONFIGURATION SPOTIFY
 const CLIENT_ID = 'bca08c406d4847d6ae1e56c04894fbcb'; 
-const REDIRECT_URI = window.location.origin + window.location.pathname; 
+const REDIRECT_URI = window.location.origin + window.location.pathname.replace(/\/$/, ""); 
 const SCOPES = 'user-read-currently-playing user-read-playback-state';
 
 // ÉLÉMENTS DU DOM
@@ -21,7 +21,7 @@ let parsedLyrics = [];
 // OUTILS CRYPTO PKCE
 function generateRandomString(length) {
     let text = '';
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
     for (let i = 0; i < length; i++) {
         text += possible.charAt(Math.floor(Math.random() * possible.length));
     }
@@ -44,10 +44,10 @@ async function initApp() {
 
     // Si on détecte le code de retour Spotify
     if (code) {
-        // On récupère d'abord le token avec le code reçu
-        token = await exchangeCodeForToken(code);
-        // Une fois le jeton validé et stocké, on nettoie proprement l'URL (?code=...)
+        // Nettoyage immédiat de l'URL (?code=...) pour couper court à toute boucle de rafraîchissement infinie sur iOS
         window.history.replaceState({}, document.title, window.location.pathname);
+        // On récupère ensuite le token avec le code reçu
+        token = await exchangeCodeForToken(code);
     }
 
     const hasVisited = localStorage.getItem('has_visited');
@@ -67,7 +67,13 @@ async function initApp() {
     }
 }
 
-window.addEventListener('DOMContentLoaded', initApp);
+window.addEventListener('DOMContentLoaded', () => {
+    initApp();
+    // Enregistrement du Service Worker pour la conformité PWA iOS
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(err => console.error("Erreur SW:", err));
+    }
+});
 
 // 2. ÉCHANGE DU CODE CONTRE UN ACCESS TOKEN (POST API)
 async function exchangeCodeForToken(code) {
@@ -131,15 +137,15 @@ function startTrackingSpotify(token) {
     if (syncTickerInterval) clearInterval(syncTickerInterval);
     
     checkCurrentTrack(token);
-    spotifyInterval = setInterval(() => checkCurrentTrack(token), 4000); // Recalibre toutes les 4s
+    spotifyInterval = setInterval(() => checkCurrentTrack(token), 3000); // Recalibre toutes les 3s
 
-    // Compteur local fluide (toutes les 200ms) pour caler les paroles au millième de seconde
+    // Compteur local fluide cadencé à 100ms pour éviter les micro-saccades sur iPhone
     syncTickerInterval = setInterval(() => {
         if (isPlaying && parsedLyrics.length > 0) {
-            currentTrackProgress += 200;
+            currentTrackProgress += 100;
             updateLyricsHighlight(currentTrackProgress);
         }
-    }, 200);
+    }, 100);
 }
 
 async function checkCurrentTrack(token) {
@@ -162,12 +168,12 @@ async function checkCurrentTrack(token) {
         const data = await response.json();
         if (data && data.item) {
             isPlaying = data.is_playing;
-            currentTrackProgress = data.progress_ms; // Ajustement sur le flux Spotify
+            currentTrackProgress = data.progress_ms; 
 
             updatePlayerUI({
                 title: data.item.name,
                 artist: data.item.artists[0].name,
-                albumArt: data.item.album.images[0].url
+                albumArt: data.item.album.images[0]?.url || ""
             });
         }
     } catch (error) {
@@ -195,23 +201,28 @@ function updatePlayerUI(track) {
         
         titleEl.innerText = track.title;
         artistEl.innerText = track.artist;
-        artEl.src = track.albumArt;
+        artEl.src = track.albumArt || "https://via.placeholder.com/60";
 
         fetchRealLyrics(track.title, track.artist);
     }
 }
 
-// 4. RÉCUPÉRATION ET TRADUCTION DES VRAIES PAROLES SYNCHRONISÉES (API LRCLIB SECURISEE)
+// 4. RÉCUPÉRATION ET TRADUCTION DES VRAIES PAROLES SYNCHRONISÉES (API LRCLIB)
 async function fetchRealLyrics(title, artist) {
     lyricsContainer.innerHTML = `<p class="placeholder-text">Recherche des paroles synchronisées...</p>`;
     parsedLyrics = [];
 
     try {
-        // Nettoyage pour enlever les "(feat...)" ou "- Remaster" qui faussent la recherche
-        const cleanTitle = title.split(' - ')[0].split(' (')[0];
+        // Nettoyage rigoureux des chaînes pour éviter d'invalider l'API lrclib
+        const cleanTitle = title
+            .replace(/-\s*Live.*/gi, '')
+            .replace(/-\s*Remaster.*/gi, '')
+            .replace(/-\s*Mix.*/gi, '')
+            .replace(/\(feat\..*?\)/gi, '')
+            .replace(/\(with.*?\)/gi, '')
+            .trim();
+
         const query = encodeURIComponent(`${cleanTitle} ${artist}`);
-        
-        // HTTPS obligatoire pour GitHub Pages
         const response = await fetch(`https://lrclib.net/api/search?q=${query}`);
         const data = await response.json();
 
@@ -269,7 +280,7 @@ function renderPlainLyrics(text) {
     lyricsContainer.appendChild(p);
 }
 
-// 5. ANIMATION ET CENTRAGE AUTO DE LA PAROLE ACTIVE
+// 5. ANIMATION ET CENTRAGE DYNAMIQUE DE LA PAROLE ACTIVE (BOUNDING CLIENT RECT)
 function updateLyricsHighlight(progress) {
     if (parsedLyrics.length === 0) return;
 
@@ -288,10 +299,18 @@ function updateLyricsHighlight(progress) {
             document.querySelectorAll('.lyric-line.active').forEach(el => el.classList.remove('active'));
             activeElement.classList.add('active');
 
-            // Alignement au centre parfait de l'écran iPhone (effet Apple Music)
-            const offsetTop = activeElement.offsetTop;
-            const containerHeight = lyricsSection.clientHeight;
-            lyricsSection.scrollTop = offsetTop - (containerHeight / 2) + (activeElement.clientHeight / 2);
+            // Utilisation exclusive de getBoundingClientRect pour un alignement précis sur Safari iOS
+            const containerRect = lyricsSection.getBoundingClientRect();
+            const elementRect = activeElement.getBoundingClientRect();
+            
+            const containerCenter = containerRect.top + (containerRect.height / 2);
+            const elementCenter = elementRect.top + (elementRect.height / 2);
+            const scrollOffset = elementCenter - containerCenter;
+
+            lyricsSection.scrollBy({
+                top: scrollOffset,
+                behavior: 'smooth'
+            });
         }
     }
 }
