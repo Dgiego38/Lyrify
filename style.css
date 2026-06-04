@@ -1,204 +1,48 @@
-:root {
-    --bg-color: #000000; 
-    --card-color: #0a0a0a;
-    --text-main: #ffffff;
-    --text-muted: rgba(255, 255, 255, 0.4);
-    --spotify-green: #1db954;
-}
-
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    -webkit-tap-highlight-color: transparent;
-}
-
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
-    background-color: var(--bg-color);
-    color: var(--text-main);
-    display: flex;
-    flex-direction: column;
+    background-color: #000000;
+    color: #ffffff;
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     height: 100vh;
-    padding-top: env(safe-area-inset-top, 20px);
-    padding-bottom: env(safe-area-inset-bottom, 20px);
     overflow: hidden;
 }
 
-header {
-    padding: 15px;
-    text-align: center;
+.hidden {
+    display: none !important;
 }
 
-header h1 {
-    font-size: 1.1rem;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-}
-
-main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    padding: 0 24px;
-    overflow: hidden;
-}
-
-.app-logo {
-    font-size: 4.5rem;
-    width: 100px;
-    height: 100px;
-    background: var(--card-color);
-    border-radius: 24px;
+/* Exemple d'organisation pour le lecteur en haut */
+#player-bar {
     display: flex;
     align-items: center;
-    justify-content: center;
-    margin: 0 auto 25px auto;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.8);
-    border: 2px solid var(--spotify-green);
-}
-
-#player-section {
-    margin-bottom: 10px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-#track-card {
-    display: flex;
-    align-items: center;
-    background: var(--card-color);
-    padding: 12px;
-    border-radius: 16px;
-    width: 100%;
-    gap: 15px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: calc(20px + env(safe-area-inset-top)) 20px 20px 20px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
 }
 
 #album-art {
     width: 50px;
     height: 50px;
     border-radius: 8px;
+    margin-right: 15px;
     object-fit: cover;
 }
 
-.track-info {
-    flex: 1;
-    overflow: hidden;
+#track-info {
+    display: flex;
+    flex-direction: column;
 }
 
 #track-title {
-    font-size: 0.95rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-weight: 700;
+    font-weight: bold;
+    font-size: 1.1rem;
 }
 
 #track-artist {
-    font-size: 0.85rem;
     color: rgba(255, 255, 255, 0.6);
-    margin-top: 2px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-button {
-    background-color: var(--spotify-green);
-    color: white;
-    border: none;
-    padding: 14px 28px;
-    font-size: 1rem;
-    font-weight: bold;
-    border-radius: 30px;
-    cursor: pointer;
-    margin-top: 10px;
-    transition: transform 0.1s ease;
-}
-
-button:active {
-    transform: scale(0.95);
-}
-
-#lyrics-section {
-    flex: 1;
-    overflow-y: scroll;
-    -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
-    padding-top: 35vh;    
-    padding-bottom: 45vh; 
-    scrollbar-width: none;
-}
-
-#lyrics-section::-webkit-scrollbar {
-    display: none;
-}
-
-#lyrics-container {
-    display: flex;
-    flex-direction: column;
-    gap: 28px;
-}
-
-.lyric-line {
-    font-size: 1.8rem;
-    line-height: 1.35;
-    font-weight: 800;
-    letter-spacing: -0.5px;
-    color: var(--text-muted);
-    transition: color 0.35s ease, transform 0.35s cubic-bezier(0.25, 1, 0.5, 1), text-shadow 0.35s ease;
-    transform: scale(0.95);
-    transform-origin: left center;
-    cursor: pointer;
-}
-
-.lyric-line.active {
-    color: var(--text-main);
-    transform: scale(1.05);
-    text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
-}
-
-.placeholder-text {
-    color: rgba(255, 255, 255, 0.5);
-    text-align: center;
-    font-size: 1.1rem;
-    padding-top: 20px;
-}
-
-#welcome-screen {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: #000000;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 999;
-    padding: 30px;
-}
-
-.welcome-content {
-    text-align: center;
-    max-width: 400px;
-}
-
-.welcome-content h1 {
-    font-size: 2.2rem;
-    margin-bottom: 15px;
-    font-weight: 800;
-}
-
-.welcome-content p {
-    color: rgba(255, 255, 255, 0.6);
-    font-size: 1.05rem;
-    line-height: 1.5;
-    margin-bottom: 40px;
-}
-
-.hidden {
-    display: none !important;
+    font-size: 0.9rem;
 }

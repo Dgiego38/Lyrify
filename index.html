@@ -4,48 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Lyrify</title>
-    
     <link rel="stylesheet" href="style.css">
-    <link rel="manifest" href="manifest.json">
-
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Lyrify">
-    <link rel="apple-touch-icon" href="icons/icon-512.png">
 </head>
 <body>
 
-    <section id="welcome-screen" class="hidden">
-        <div class="welcome-content">
-            <span class="emoji">👋</span>
-            <h1>Bonjour !</h1>
-            <p>Bienvenue sur <strong>Lyrify</strong>. L'application qui affiche vos paroles en temps réel pendant que vous écoutez votre musique sur Spotify.</p>
-            <button id="welcome-login-btn">Se connecter avec Spotify</button>
-        </div>
-    </section>
-
     <div id="main-app" class="hidden">
-        <header>
-            <h1>Lyrify</h1>
-        </header>
+        
+        <div id="player-bar">
+            <img id="album-art" src="https://via.placeholder.com/60" alt="Pochette d'album">
+            <div id="track-info">
+                <div id="track-title">Aucune musique</div>
+                <div id="track-artist">Lancez un morceau sur Spotify</div>
+            </div>
+        </div>
 
-        <main>
-            <section id="player-section">
-                <div id="track-card">
-                    <img id="album-art" src="https://via.placeholder.com/60" alt="Album Art">
-                    <div class="track-info">
-                        <h2 id="track-title">Aucune musique</h2>
-                        <p id="track-artist">Lancez un morceau sur Spotify</p>
-                    </div>
-                </div>
-            </section>
+        <div id="lyrics-section">
+            <div id="lyrics-container">
+                <p class="placeholder-text">En attente de détection de votre lecture Spotify...</p>
+            </div>
+        </div>
 
-            <section id="lyrics-section">
-                <div id="lyrics-container">
-                    <p class="placeholder-text">Recherche de la musique en cours...</p>
-                </div>
-            </section>
-        </main>
     </div>
 
     <script src="app.js"></script>
