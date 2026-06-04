@@ -74,24 +74,16 @@ async function exchangeCodeForToken(code) {
     }
 }
 
-// PROTECTION ANTI-FREEZE IPHONE (RECHARGEMENT ET EFFACEMENT DU CACHE AUTOMATIQUE)
-document.addEventListener('visibilitychange', async () => {
+// PROTECTION ANTI-FREEZE IPHONE : RECONNEXION INSTANTANÉE SANS CHARGEMENT LENT
+document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
+        // On coupe proprement les compteurs pour repartir sur un flux propre
         if (spotifyInterval) clearInterval(spotifyInterval);
         if (syncTickerInterval) clearInterval(syncTickerInterval);
-        lastTrackId = ""; 
-
-        // Force le rechargement transparent en arrière-plan avec un paramètre unique
-        try {
-            await fetch(window.location.pathname + '?cacheBust=' + new Date().getTime(), { 
-                cache: 'reload' 
-            });
-        } catch (e) {
-            console.log("Mode déconnecté ou serveur injoignable");
-        }
 
         const token = localStorage.getItem('spotify_token');
         if (token) {
+            // Relance immédiate du suivi en tâche de fond
             startTrackingSpotify(token);
         } else {
             window.location.href = 'login.html';
@@ -104,7 +96,9 @@ function startTrackingSpotify(token) {
     if (spotifyInterval) clearInterval(spotifyInterval);
     if (syncTickerInterval) clearInterval(syncTickerInterval);
 
+    // Premier appel direct à la milliseconde près au démarrage ou déverrouillage
     checkCurrentTrack(token);
+    
     // Synchro globale toutes les 3 secondes auprès de Spotify
     spotifyInterval = setInterval(() => checkCurrentTrack(token), 3000);
 
@@ -137,7 +131,7 @@ async function checkCurrentTrack(token) {
         const data = await response.json();
         if (data && data.item) {
             isPlaying = data.is_playing;
-            currentTrackProgress = data.progress_ms;
+            currentTrackProgress = data.progress_ms; // Recalibrage sur le flux réel de Spotify
 
             updatePlayerUI({
                 title: data.item.name,
@@ -162,9 +156,11 @@ function updatePlayerUI(track) {
         artEl.src = "https://via.placeholder.com/60";
         lyricsContainer.innerHTML = `<p class="placeholder-text">Lancez une musique sur Spotify pour voir les paroles.</p>`;
         parsedLyrics = [];
+        lastTrackId = ""; // Reset pour forcer la recherche si une musique reprend plus tard
         return;
     }
 
+    // Déclenchement de la recherche UNIQUEMENT si le morceau a changé
     const currentTrackId = `${track.title}-${track.artist}`;
     if (lastTrackId !== currentTrackId) {
         lastTrackId = currentTrackId;
