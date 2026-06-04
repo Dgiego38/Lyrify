@@ -1,7 +1,5 @@
 // CONFIGURATION LOGIQUE DU FLUX
 const CLIENT_ID = 'bca08c406d4847d6ae1e56c04894fbcb';
-
-// Déduit automatiquement l'adresse de retour correspondante à login.html
 const REDIRECT_URI = window.location.origin + window.location.pathname.replace('index.html', '') + 'login.html';
 
 const mainApp = document.getElementById('main-app');
@@ -22,16 +20,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     const code = urlParams.get('code');
     let token = localStorage.getItem('spotify_token');
 
-    // Si on intercepte un code d'authentification transmis par la redirection Spotify
     if (code) {
-        // Nettoyage immédiat des paramètres URL pour éviter les boucles au rechargement
         window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
-        
-        // Échange du code contre le jeton final
         token = await exchangeCodeForToken(code);
     }
 
-    // Sécurité d'accès : S'il n'y a aucun token valide, retour au login
     if (!token) {
         window.location.href = 'login.html';
     } else {
@@ -40,15 +33,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// Échange du code d'autorisation via requête POST PKCE
 async function exchangeCodeForToken(code) {
     const codeVerifier = localStorage.getItem('spotify_code_verifier');
-    
     const payload = {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
             client_id: CLIENT_ID,
             grant_type: 'authorization_code',
@@ -61,48 +50,35 @@ async function exchangeCodeForToken(code) {
     try {
         const response = await fetch('https://accounts.spotify.com/api/token', payload);
         const data = await response.json();
-        
         if (data.access_token) {
             localStorage.setItem('spotify_token', data.access_token);
-            localStorage.removeItem('spotify_code_verifier'); // Nettoyage de sécurité
+            localStorage.removeItem('spotify_code_verifier');
             return data.access_token;
         }
         return null;
     } catch (error) {
-        console.error("Erreur lors de l'échange du token :", error);
+        console.error("Erreur token:", error);
         return null;
     }
 }
 
-// PROTECTION ANTI-FREEZE IPHONE : RECONNEXION INSTANTANÉE SANS CHARGEMENT LENT
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-        // On coupe proprement les compteurs pour repartir sur un flux propre
         if (spotifyInterval) clearInterval(spotifyInterval);
         if (syncTickerInterval) clearInterval(syncTickerInterval);
-
         const token = localStorage.getItem('spotify_token');
-        if (token) {
-            // Relance immédiate du suivi en tâche de fond
-            startTrackingSpotify(token);
-        } else {
-            window.location.href = 'login.html';
-        }
+        if (token) startTrackingSpotify(token);
     }
 });
 
-// 2. SUIVI EN TEMPS RÉEL DE L'ÉCOUTE
+// 2. SUIVI EN TEMPS RÉEL
 function startTrackingSpotify(token) {
     if (spotifyInterval) clearInterval(spotifyInterval);
     if (syncTickerInterval) clearInterval(syncTickerInterval);
 
-    // Premier appel direct à la milliseconde près au démarrage ou déverrouillage
     checkCurrentTrack(token);
-    
-    // Synchro globale toutes les 3 secondes auprès de Spotify
-    spotifyInterval = setInterval(() => checkCurrentTrack(token), 3000);
+    spotifyInterval = setInterval(() => checkCurrentTrack(token), 2000);
 
-    // Micro-compteur de 100ms ultra-fluide pour le glissement des paroles
     syncTickerInterval = setInterval(() => {
         if (isPlaying && parsedLyrics.length > 0) {
             currentTrackProgress += 100;
@@ -131,20 +107,21 @@ async function checkCurrentTrack(token) {
         const data = await response.json();
         if (data && data.item) {
             isPlaying = data.is_playing;
-            currentTrackProgress = data.progress_ms; // Recalibrage sur le flux réel de Spotify
+            currentTrackProgress = data.progress_ms;
 
             updatePlayerUI({
+                id: data.item.id,
                 title: data.item.name,
                 artist: data.item.artists[0].name,
                 albumArt: data.item.album.images[0].url
             });
         }
     } catch (error) {
-        console.error("Erreur API Spotify :", error);
+        console.error("Erreur API Spotify:", error);
     }
 }
 
-// 3. AFFICHAGE DES INFOS DU MORCEAU
+// 3. INTERFACE GRAPHIQUE
 function updatePlayerUI(track) {
     const titleEl = document.getElementById('track-title');
     const artistEl = document.getElementById('track-artist');
@@ -154,54 +131,73 @@ function updatePlayerUI(track) {
         titleEl.innerText = "Aucune musique";
         artistEl.innerText = "Lancez un morceau sur Spotify";
         artEl.src = "https://via.placeholder.com/60";
-        lyricsContainer.innerHTML = `<p class="placeholder-text">Lancez une musique sur Spotify pour voir les paroles.</p>`;
+        lyricsContainer.innerHTML = `<p class="placeholder-text">Lancez une musique sur Spotify.</p>`;
         parsedLyrics = [];
-        lastTrackId = ""; // Reset pour forcer la recherche si une musique reprend plus tard
+        lastTrackId = "";
         return;
     }
 
-    // Déclenchement de la recherche UNIQUEMENT si le morceau a changé
-    const currentTrackId = `${track.title}-${track.artist}`;
-    if (lastTrackId !== currentTrackId) {
-        lastTrackId = currentTrackId;
+    if (lastTrackId !== track.id) {
+        lastTrackId = track.id;
         
         titleEl.innerText = track.title;
         artistEl.innerText = track.artist;
         artEl.src = track.albumArt;
 
-        fetchRealLyrics(track.title, track.artist);
+        // Lancement en tâche de fond (asynchrone) pour ne pas figer l'application
+        fetchLyricsAsync(track.title, track.artist);
     }
 }
 
-// 4. RÉCUPÉRATION ET TRADUCTION DES PAROLES (API LRCLIB)
-async function fetchRealLyrics(title, artist) {
-    lyricsContainer.innerHTML = `<p class="placeholder-text">Recherche des paroles...</p>`;
+// 4. RÉCUPÉRATION FLUIDE SANS BLOCAGE (LRCLIB STABLE)
+async function fetchLyricsAsync(title, artist) {
+    // On ne vide pas l'écran agressivement avec un message de chargement qui fait clignoter l'app
     parsedLyrics = [];
 
     try {
-        const cleanTitle = title.split(' - ')[0].split(' (')[0];
-        const query = encodeURIComponent(`${cleanTitle} ${artist}`);
+        const cleanTitle = title.split(' - ')[0].split(' (')[0].split(' [')[0].trim();
+        const cleanArtist = artist.split(',')[0].trim();
         
-        const response = await fetch(`https://lrclib.net/api/search?q=${query}`);
-        const data = await response.json();
-
-        if (data && data.length > 0 && data[0].syncedLyrics) {
-            parseLrc(data[0].syncedLyrics);
-        } else if (data && data.length > 0 && data[0].plainLyrics) {
-            renderPlainLyrics(data[0].plainLyrics);
-        } else {
-            lyricsContainer.innerHTML = `<p class="placeholder-text">Paroles indisponibles pour ce morceau 😢</p>`;
+        const url = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(cleanArtist)}&track_name=${encodeURIComponent(cleanTitle)}`;
+        const response = await fetch(url);
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.syncedLyrics) {
+                parseLrc(data.syncedLyrics);
+                return;
+            } else if (data.plainLyrics) {
+                renderPlainLyrics(data.plainLyrics);
+                return;
+            }
         }
+
+        // Plan B : Recherche classique si la recherche exacte échoue
+        const fallbackResponse = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(cleanTitle + ' ' + cleanArtist)}`);
+        const fallbackData = await fallbackResponse.json();
+
+        if (fallbackData && fallbackData.length > 0) {
+            const bestMatch = fallbackData[0];
+            if (bestMatch.syncedLyrics) {
+                parseLrc(bestMatch.syncedLyrics);
+                return;
+            } else if (bestMatch.plainLyrics) {
+                renderPlainLyrics(bestMatch.plainLyrics);
+                return;
+            }
+        }
+
+        lyricsContainer.innerHTML = `<p class="placeholder-text">Paroles indisponibles 😢</p>`;
+
     } catch (error) {
-        console.error("Erreur chargement paroles :", error);
-        lyricsContainer.innerHTML = `<p class="placeholder-text">Erreur lors du chargement des paroles.</p>`;
+        console.error("Erreur paroles:", error);
+        lyricsContainer.innerHTML = `<p class="placeholder-text">Erreur de chargement.</p>`;
     }
 }
 
 function parseLrc(lrcText) {
     parsedLyrics = [];
     lyricsContainer.innerHTML = "";
-
     const lines = lrcText.split('\n');
     const timeRegEx = /\[(\d+):(\d+)\.(\d+)\]/;
 
@@ -211,13 +207,11 @@ function parseLrc(lrcText) {
             const minutes = parseInt(match[1]);
             const seconds = parseInt(match[2]);
             const milliseconds = parseInt(match[3].padEnd(3, '0').substring(0, 3));
-            
             const timeInMs = (minutes * 60 * 1000) + (seconds * 1000) + milliseconds;
             const text = line.replace(timeRegEx, '').trim();
 
             if (text) { 
                 parsedLyrics.push({ time: timeInMs, text: text, id: `line-${index}` });
-
                 const p = document.createElement('p');
                 p.id = `line-${index}`;
                 p.className = 'lyric-line';
@@ -238,7 +232,7 @@ function renderPlainLyrics(text) {
     lyricsContainer.appendChild(p);
 }
 
-// 5. ANIMATION ET CENTRAGE FLUIDE DES PAROLES (APPLE MUSIC STYLE)
+// 5. ANIMATION ET CENTRAGE
 function updateLyricsHighlight(progress) {
     if (parsedLyrics.length === 0) return;
 
@@ -257,7 +251,6 @@ function updateLyricsHighlight(progress) {
             document.querySelectorAll('.lyric-line.active').forEach(el => el.classList.remove('active'));
             activeElement.classList.add('active');
 
-            // Calcul du centrage vertical exact dans la boîte de défilement
             const containerTop = lyricsSection.getBoundingClientRect().top;
             const elementTop = activeElement.getBoundingClientRect().top;
             const relativeTop = elementTop - containerTop;
