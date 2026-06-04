@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lyrify - Connexion</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Style minimaliste pour l'écran de connexion */
+        body {
+            background-color: #000000;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        }
+        .login-container {
+            text-align: center;
+            padding: 20px;
+        }
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            letter-spacing: -0.5px;
+        }
+        p {
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 30px;
+            font-size: 1rem;
+        }
+        .btn-spotify {
+            background-color: #1DB954;
+            color: #ffffff;
+            border: none;
+            padding: 14px 28px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.2s ease, background-color 0.2s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-spotify:active {
+            transform: scale(0.95);
+            background-color: #1ed760;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        <h1>Lyrify</h1>
+        <p>Vos paroles synchronisées style Apple Music.</p>
+        <button id="welcome-login-btn" class="btn-spotify">Se connecter avec Spotify</button>
+    </div>
+
+    <script>
+        const CLIENT_ID = 'bca08c406d4847d6ae1e56c04894fbcb';
+        // La redirection de l'authentification doit renvoyer vers index.html pour valider le token
+        const REDIRECT_URI = window.location.origin + window.location.pathname.replace('login.html', 'index.html');
+        const SCOPES = 'user-read-currently-playing user-read-playback-state';
+
+        // Si l'utilisateur est déjà connecté, on le renvoie direct sur l'app
+        if (localStorage.getItem('spotify_token')) {
+            window.location.href = 'index.html';
+        }
+
+        document.getElementById('welcome-login-btn').addEventListener('click', () => {
+            const authUrl = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(SCOPES)}&response_type=token&show_dialog=true`;
+            window.location.href = authUrl;
+        });
+    </script>
+</body>
+</html>
