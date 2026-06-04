@@ -3,19 +3,19 @@
   "name": "Lyrify - Spotify Live Lyrics",
   "icons": [
     {
-      "src": "icons/icon-192.png",
+      "src": "https://placehold.co/192x192/000000/ffffff?text=Lyrify",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "icons/icon-512.png",
+      "src": "https://placehold.co/512x512/000000/ffffff?text=Lyrify",
       "type": "image/png",
       "sizes": "512x512"
     }
   ],
   "start_url": ".",
-  "background_color": "#121212",
-  "theme_color": "#121212",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "display": "standalone",
   "orientation": "portrait"
 }
