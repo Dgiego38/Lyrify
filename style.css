@@ -122,7 +122,6 @@ button:active {
     transform: scale(0.95);
 }
 
-/* CONTENEUR PAROLES OPTIMISÉ POUR DEFILEMENT DOUX IPHONE */
 #lyrics-section {
     flex: 1;
     overflow-y: scroll;
