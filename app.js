@@ -1,14 +1,9 @@
-// CONFIGURATION SPOTIFY
-const CLIENT_ID = 'bca08c406d4847d6ae1e56c04894fbcb'; 
+// CONFIGURATION DU FLUX
+const CLIENT_ID = 'bca08c406d4847d6ae1e56c04894fbcb';
+// L'URI de redirection pointe vers login.html car c'est là que Spotify renvoie le code
+const REDIRECT_URI = window.location.origin + window.location.pathname.replace('index.html', '') + 'login.html';
 
-// S'adapte parfaitement sur localhost et GitHub Pages en gérant le cas du slash final
-const REDIRECT_URI = window.location.origin + window.location.pathname; 
-const SCOPES = 'user-read-currently-playing user-read-playback-state';
-
-// ÉLÉMENTS DU DOM
-const welcomeScreen = document.getElementById('welcome-screen');
 const mainApp = document.getElementById('main-app');
-const loginBtn = document.getElementById('welcome-login-btn');
 const lyricsSection = document.getElementById('lyrics-section');
 const lyricsContainer = document.getElementById('lyrics-container');
 
@@ -20,68 +15,87 @@ let currentTrackProgress = 0;
 let isPlaying = false;
 let parsedLyrics = []; 
 
-// 1. GESTION DU CYCLE DE VIE (PREMIÈRE VISITE & AUTH)
-window.addEventListener('DOMContentLoaded', () => {
-    const hash = window.location.hash;
+// 1. CYCLE DE VIE (ÉCHANGE DU CODE & VÉRIFICATION DU TOKEN)
+window.addEventListener('DOMContentLoaded', async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
     let token = localStorage.getItem('spotify_token');
 
-    // Si on détecte le token de retour Spotify dans l'URL
-    if (hash) {
-        const params = new URLSearchParams(hash.substring(1));
-        token = params.get('access_token');
-        localStorage.setItem('spotify_token', token);
-        localStorage.setItem('has_visited', 'true'); // Enregistre le passage
-        window.location.hash = ''; // Nettoie l'URL pour stopper d'éventuelles boucles
+    // Si on détecte le code d'autorisation transmis par login.html
+    if (code) {
+        // ON COUPE LA BARRE D'ADRESSE TOUT DE SUITE pour tuer les boucles infinies de rafraîchissement
+        window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+        
+        // On effectue l'échange sécurisé PKCE
+        token = await exchangeCodeForToken(code);
     }
 
-    const hasVisited = localStorage.getItem('has_visited');
-
-    if (!hasVisited && !token) {
-        // Premier arrivage : on montre l'écran d'accueil
-        welcomeScreen.classList.remove('hidden');
-        mainApp.classList.add('hidden');
+    // Sécurité : S'il n'y a pas de jeton final, retour immédiat à la page de connexion
+    if (!token) {
+        window.location.href = 'login.html';
     } else {
-        // Déjà venu : on bascule sur l'app directement
-        welcomeScreen.classList.add('hidden');
-        mainApp.classList.remove('hidden');
-        if (token) {
-            startTrackingSpotify(token);
-        } else {
-            // Si le token manque, on remontre l'accueil pour forcer la connexion
-            welcomeScreen.classList.remove('hidden');
-            mainApp.classList.add('hidden');
-        }
+        if (mainApp) mainApp.classList.remove('hidden');
+        startTrackingSpotify(token);
     }
 });
 
-// 2. BOUTON DE CONNEXION (Flux Implicit Grant - response_type=token)
-loginBtn.addEventListener('click', () => {
-    // Correction ici : ajout du $ devant {CLIENT_ID}
-    const authUrl = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(SCOPES)}&response_type=token&show_dialog=true`;
-    window.location.href = authUrl;
-});
+// Échange du code d'autorisation contre un Access Token (Fetch POST - PKCE)
+async function exchangeCodeForToken(code) {
+    const codeVerifier = localStorage.getItem('spotify_code_verifier');
+    
+    const payload = {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+            client_id: CLIENT_ID,
+            grant_type: 'authorization_code',
+            code: code,
+            redirect_uri: REDIRECT_URI,
+            code_verifier: codeVerifier,
+        }),
+    };
 
-// FORCE REFRESH À CHAQUE OUVERTURE SUR IPHONE (ANTI-FREEZE)
+    try {
+        const response = await fetch('https://accounts.spotify.com/api/token', payload);
+        const data = await response.json();
+        
+        if (data.access_token) {
+            localStorage.setItem('spotify_token', data.access_token);
+            localStorage.removeItem('spotify_code_verifier'); // Nettoyage de la clé temporaire
+            return data.access_token;
+        }
+        return null;
+    } catch (error) {
+        console.error("Erreur lors de l'échange du token :", error);
+        return null;
+    }
+}
+
+// RECALIBRATION AU PREMIER PLAN (ANTI-FREEZE IPHONE)
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
         if (spotifyInterval) clearInterval(spotifyInterval);
         if (syncTickerInterval) clearInterval(syncTickerInterval);
         lastTrackId = ""; 
         const token = localStorage.getItem('spotify_token');
-        if (token) startTrackingSpotify(token);
+        if (token) {
+            startTrackingSpotify(token);
+        } else {
+            window.location.href = 'login.html';
+        }
     }
 });
 
-// 3. SUIVI TEMPS RÉEL SPOTIFY & COMPTEUR LOCAL HAUTE PRÉCISION
+// 2. SUIVI TEMPS RÉEL SPOTIFY
 function startTrackingSpotify(token) {
     if (spotifyInterval) clearInterval(spotifyInterval);
     if (syncTickerInterval) clearInterval(syncTickerInterval);
 
     checkCurrentTrack(token);
-    // Vérification toutes les 3 secondes auprès de Spotify pour recalibrer la position réelle
     spotifyInterval = setInterval(() => checkCurrentTrack(token), 3000);
 
-    // Compteur local fluide (toutes les 100ms) pour une synchro ultra-réactive des paroles
     syncTickerInterval = setInterval(() => {
         if (isPlaying && parsedLyrics.length > 0) {
             currentTrackProgress += 100;
@@ -96,14 +110,12 @@ async function checkCurrentTrack(token) {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
-        // Token expiré (401) -> Déconnexion et reset
         if (response.status === 401) {
             localStorage.removeItem('spotify_token');
-            window.location.reload();
+            window.location.href = 'login.html';
             return;
         }
 
-        // Aucune musique active (204)
         if (response.status === 204) {
             updatePlayerUI(null);
             return;
@@ -112,7 +124,7 @@ async function checkCurrentTrack(token) {
         const data = await response.json();
         if (data && data.item) {
             isPlaying = data.is_playing;
-            currentTrackProgress = data.progress_ms; // Ajustement sur le temps réel de Spotify
+            currentTrackProgress = data.progress_ms;
 
             updatePlayerUI({
                 title: data.item.name,
@@ -125,7 +137,7 @@ async function checkCurrentTrack(token) {
     }
 }
 
-// 4. MISE À JOUR DE L'INTERFACE GRAPHIQUE
+// 3. INTERFACE GRAPHIQUE
 function updatePlayerUI(track) {
     const titleEl = document.getElementById('track-title');
     const artistEl = document.getElementById('track-artist');
@@ -140,7 +152,6 @@ function updatePlayerUI(track) {
         return;
     }
 
-    // On ne met à jour le texte et les paroles que si le morceau a changé
     const currentTrackId = `${track.title}-${track.artist}`;
     if (lastTrackId !== currentTrackId) {
         lastTrackId = currentTrackId;
@@ -153,17 +164,15 @@ function updatePlayerUI(track) {
     }
 }
 
-// 5. RÉCUPÉRATION DES VRAIES PAROLES SYNCHRONISÉES (API LRCLIB SECURISEE)
+// 4. RÉCUPÉRATION DES PAROLES (API LRCLIB)
 async function fetchRealLyrics(title, artist) {
     lyricsContainer.innerHTML = `<p class="placeholder-text">Recherche des paroles synchronisées...</p>`;
     parsedLyrics = [];
 
     try {
-        // Nettoyage pour enlever les "(feat...)" ou "- Remaster" qui faussent la recherche
         const cleanTitle = title.split(' - ')[0].split(' (')[0];
         const query = encodeURIComponent(`${cleanTitle} ${artist}`);
         
-        // Requête HTTPS sécurisée vers l'API de paroles
         const response = await fetch(`https://lrclib.net/api/search?q=${query}`);
         const data = await response.json();
 
@@ -180,7 +189,6 @@ async function fetchRealLyrics(title, artist) {
     }
 }
 
-// Découpe le format LRC [mm:ss.xx] en millisecondes pour l'animation
 function parseLrc(lrcText) {
     parsedLyrics = [];
     lyricsContainer.innerHTML = "";
@@ -211,6 +219,7 @@ function parseLrc(lrcText) {
     });
 }
 
+// Paroles simples non synchronisées
 function renderPlainLyrics(text) {
     lyricsContainer.innerHTML = "";
     const p = document.createElement('p');
@@ -221,7 +230,7 @@ function renderPlainLyrics(text) {
     lyricsContainer.appendChild(p);
 }
 
-// 6. ANIMATION ET CENTRAGE AUTOMATIQUE AU CENTRE DE L'ÉCRAN
+// 5. ANIMATION ET CENTRAGE STYLE APPLE MUSIC
 function updateLyricsHighlight(progress) {
     if (parsedLyrics.length === 0) return;
 
@@ -240,7 +249,6 @@ function updateLyricsHighlight(progress) {
             document.querySelectorAll('.lyric-line.active').forEach(el => el.classList.remove('active'));
             activeElement.classList.add('active');
 
-            // Calcul de défilement au pixel près adapté à Safari iOS
             const containerTop = lyricsSection.getBoundingClientRect().top;
             const elementTop = activeElement.getBoundingClientRect().top;
             const relativeTop = elementTop - containerTop;

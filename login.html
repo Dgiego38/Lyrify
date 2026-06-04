@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Lyrify - Connexion</title>
-    <link rel="stylesheet" href="style.css">
     <style>
-        /* Style minimaliste pour l'écran de connexion */
         body {
             background-color: #000000;
             color: #ffffff;
@@ -63,17 +61,61 @@
 
     <script>
         const CLIENT_ID = 'bca08c406d4847d6ae1e56c04894fbcb';
-        // La redirection de l'authentification doit renvoyer vers index.html pour valider le token
-        const REDIRECT_URI = window.location.origin + window.location.pathname.replace('login.html', 'index.html');
         const SCOPES = 'user-read-currently-playing user-read-playback-state';
+        const REDIRECT_URI = window.location.origin + window.location.pathname;
 
-        // Si l'utilisateur est déjà connecté, on le renvoie direct sur l'app
-        if (localStorage.getItem('spotify_token')) {
-            window.location.href = 'index.html';
+        // Outils Crypto pour le flux PKCE
+        function generateRandomString(length) {
+            const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+            const values = crypto.getRandomValues(new Uint8Array(length));
+            return Array.from(values, x => possible[x % possible.length]).join('');
         }
 
-        document.getElementById('welcome-login-btn').addEventListener('click', () => {
-            const authUrl = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(SCOPES)}&response_type=token&show_dialog=true`;
+        async function sha256(plain) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(plain);
+            return crypto.subtle.digest('SHA-256', data);
+        }
+
+        function base64urlencode(a) {
+            return btoa(String.fromCharCode.apply(null, new Uint8Array(a)))
+                .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            
+            // Si le code d'autorisation est dans l'URL, on bascule sur index.html pour faire l'échange
+            if (code) {
+                window.location.href = `index.html?code=${code}`;
+                return;
+            }
+
+            // Si l'utilisateur est déjà connecté avec un token, direction l'app
+            if (localStorage.getItem('spotify_token')) {
+                window.location.href = 'index.html';
+            }
+        });
+
+        document.getElementById('welcome-login-btn').addEventListener('click', async () => {
+            const codeVerifier = generateRandomString(64);
+            const hashed = await sha256(codeVerifier);
+            const codeChallenge = base64urlencode(hashed);
+
+            // On stocke le code_verifier pour que index.html puisse le récupérer lors de l'échange
+            localStorage.setItem('spotify_code_verifier', codeVerifier);
+
+            const authUrl = `https://accounts.spotify.com/authorize?` + new URLSearchParams({
+                response_type: 'code',
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                redirect_uri: REDIRECT_URI,
+                code_challenge_method: 'S256',
+                code_challenge: codeChallenge,
+                show_dialog: 'true'
+            }).toString();
+
             window.location.href = authUrl;
         });
     </script>
