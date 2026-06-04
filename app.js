@@ -1,6 +1,7 @@
-// CONFIGURATION DU FLUX
+// CONFIGURATION LOGIQUE DU FLUX
 const CLIENT_ID = 'bca08c406d4847d6ae1e56c04894fbcb';
-// L'URI de redirection pointe vers login.html car c'est là que Spotify renvoie le code
+
+// Déduit automatiquement l'adresse de retour correspondante à login.html
 const REDIRECT_URI = window.location.origin + window.location.pathname.replace('index.html', '') + 'login.html';
 
 const mainApp = document.getElementById('main-app');
@@ -15,22 +16,22 @@ let currentTrackProgress = 0;
 let isPlaying = false;
 let parsedLyrics = []; 
 
-// 1. CYCLE DE VIE (ÉCHANGE DU CODE & VÉRIFICATION DU TOKEN)
+// 1. CYCLE DE VIE DE L'APPLICATION
 window.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     let token = localStorage.getItem('spotify_token');
 
-    // Si on détecte le code d'autorisation transmis par login.html
+    // Si on intercepte un code d'authentification transmis par la redirection Spotify
     if (code) {
-        // ON COUPE LA BARRE D'ADRESSE TOUT DE SUITE pour tuer les boucles infinies de rafraîchissement
+        // Nettoyage immédiat des paramètres URL pour éviter les boucles au rechargement
         window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
         
-        // On effectue l'échange sécurisé PKCE
+        // Échange du code contre le jeton final
         token = await exchangeCodeForToken(code);
     }
 
-    // Sécurité : S'il n'y a pas de jeton final, retour immédiat à la page de connexion
+    // Sécurité d'accès : S'il n'y a aucun token valide, retour au login
     if (!token) {
         window.location.href = 'login.html';
     } else {
@@ -39,7 +40,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// Échange du code d'autorisation contre un Access Token (Fetch POST - PKCE)
+// Échange du code d'autorisation via requête POST PKCE
 async function exchangeCodeForToken(code) {
     const codeVerifier = localStorage.getItem('spotify_code_verifier');
     
@@ -63,7 +64,7 @@ async function exchangeCodeForToken(code) {
         
         if (data.access_token) {
             localStorage.setItem('spotify_token', data.access_token);
-            localStorage.removeItem('spotify_code_verifier'); // Nettoyage de la clé temporaire
+            localStorage.removeItem('spotify_code_verifier'); // Nettoyage de sécurité
             return data.access_token;
         }
         return null;
@@ -73,12 +74,22 @@ async function exchangeCodeForToken(code) {
     }
 }
 
-// RECALIBRATION AU PREMIER PLAN (ANTI-FREEZE IPHONE)
-document.addEventListener('visibilitychange', () => {
+// PROTECTION ANTI-FREEZE IPHONE (RECHARGEMENT ET EFFACEMENT DU CACHE AUTOMATIQUE)
+document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'visible') {
         if (spotifyInterval) clearInterval(spotifyInterval);
         if (syncTickerInterval) clearInterval(syncTickerInterval);
         lastTrackId = ""; 
+
+        // Force le rechargement transparent en arrière-plan avec un paramètre unique
+        try {
+            await fetch(window.location.pathname + '?cacheBust=' + new Date().getTime(), { 
+                cache: 'reload' 
+            });
+        } catch (e) {
+            console.log("Mode déconnecté ou serveur injoignable");
+        }
+
         const token = localStorage.getItem('spotify_token');
         if (token) {
             startTrackingSpotify(token);
@@ -88,14 +99,16 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
-// 2. SUIVI TEMPS RÉEL SPOTIFY
+// 2. SUIVI EN TEMPS RÉEL DE L'ÉCOUTE
 function startTrackingSpotify(token) {
     if (spotifyInterval) clearInterval(spotifyInterval);
     if (syncTickerInterval) clearInterval(syncTickerInterval);
 
     checkCurrentTrack(token);
+    // Synchro globale toutes les 3 secondes auprès de Spotify
     spotifyInterval = setInterval(() => checkCurrentTrack(token), 3000);
 
+    // Micro-compteur de 100ms ultra-fluide pour le glissement des paroles
     syncTickerInterval = setInterval(() => {
         if (isPlaying && parsedLyrics.length > 0) {
             currentTrackProgress += 100;
@@ -137,7 +150,7 @@ async function checkCurrentTrack(token) {
     }
 }
 
-// 3. INTERFACE GRAPHIQUE
+// 3. AFFICHAGE DES INFOS DU MORCEAU
 function updatePlayerUI(track) {
     const titleEl = document.getElementById('track-title');
     const artistEl = document.getElementById('track-artist');
@@ -164,9 +177,9 @@ function updatePlayerUI(track) {
     }
 }
 
-// 4. RÉCUPÉRATION DES PAROLES (API LRCLIB)
+// 4. RÉCUPÉRATION ET TRADUCTION DES PAROLES (API LRCLIB)
 async function fetchRealLyrics(title, artist) {
-    lyricsContainer.innerHTML = `<p class="placeholder-text">Recherche des paroles synchronisées...</p>`;
+    lyricsContainer.innerHTML = `<p class="placeholder-text">Recherche des paroles...</p>`;
     parsedLyrics = [];
 
     try {
@@ -219,7 +232,6 @@ function parseLrc(lrcText) {
     });
 }
 
-// Paroles simples non synchronisées
 function renderPlainLyrics(text) {
     lyricsContainer.innerHTML = "";
     const p = document.createElement('p');
@@ -230,7 +242,7 @@ function renderPlainLyrics(text) {
     lyricsContainer.appendChild(p);
 }
 
-// 5. ANIMATION ET CENTRAGE STYLE APPLE MUSIC
+// 5. ANIMATION ET CENTRAGE FLUIDE DES PAROLES (APPLE MUSIC STYLE)
 function updateLyricsHighlight(progress) {
     if (parsedLyrics.length === 0) return;
 
@@ -249,6 +261,7 @@ function updateLyricsHighlight(progress) {
             document.querySelectorAll('.lyric-line.active').forEach(el => el.classList.remove('active'));
             activeElement.classList.add('active');
 
+            // Calcul du centrage vertical exact dans la boîte de défilement
             const containerTop = lyricsSection.getBoundingClientRect().top;
             const elementTop = activeElement.getBoundingClientRect().top;
             const relativeTop = elementTop - containerTop;
