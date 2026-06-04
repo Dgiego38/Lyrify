@@ -1,6 +1,5 @@
-// CONFIGURATION SPOTIFY
+// CONFIGURATION SPOTIFY PRODUCTION
 const CLIENT_ID = 'bca08c406d4847d6ae1e56c04894fbcb'; 
-// Nettoyage strict pour éviter le slash de fin qui fait échouer l'authentification
 const REDIRECT_URI = window.location.origin + window.location.pathname.replace(/\/$/, ""); 
 const SCOPES = 'user-read-currently-playing user-read-playback-state';
 
@@ -19,7 +18,7 @@ let currentTrackProgress = 0;
 let isPlaying = false;
 let parsedLyrics = []; 
 
-// OUTILS CRYPTO PKCE NOMINATIFS ET CORRIGÉS
+// UTILS CRYPTO PKCE
 function generateRandomString(length) {
     let text = '';
     const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
@@ -37,7 +36,7 @@ async function generateCodeChallenge(codeVerifier) {
         .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-// 1. GESTION DU CYCLE DE VIE
+// 1. INITIALISATION DE L'APPLICATION
 async function initApp() {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
@@ -49,26 +48,19 @@ async function initApp() {
         token = await exchangeCodeForToken(code);
     }
 
-    const hasVisited = localStorage.getItem('has_visited');
-
-    if (!hasVisited && !token) {
+    if (!token) {
         welcomeScreen.classList.remove('hidden');
         mainApp.classList.add('hidden');
     } else {
-        if (token) {
-            welcomeScreen.classList.add('hidden');
-            mainApp.classList.remove('hidden');
-            startTrackingSpotify(token);
-        } else {
-            welcomeScreen.classList.remove('hidden');
-            mainApp.classList.add('hidden');
-        }
+        welcomeScreen.classList.add('hidden');
+        mainApp.classList.remove('hidden');
+        startTrackingSpotify(token);
     }
 }
 
 window.addEventListener('DOMContentLoaded', initApp);
 
-// 2. ÉCHANGE DU CODE CONTRE UN ACCESS TOKEN
+// 2. ÉCHANGE DU CODE CONTRE UN ACCESS TOKEN (API OFFICIELLE)
 async function exchangeCodeForToken(code) {
     const codeVerifier = localStorage.getItem('code_verifier');
     const payload = {
@@ -84,12 +76,11 @@ async function exchangeCodeForToken(code) {
     };
 
     try {
-        const body = await fetch('https://accounts.spotify.com/api/token', payload);
-        const response = await body.json();
-        if (response.access_token) {
-            localStorage.setItem('spotify_token', response.access_token);
-            localStorage.setItem('has_visited', 'true');
-            return response.access_token;
+        const response = await fetch('https://accounts.spotify.com/api/token', payload);
+        const data = await response.json();
+        if (data.access_token) {
+            localStorage.setItem('spotify_token', data.access_token);
+            return data.access_token;
         }
     } catch (error) {
         console.error("Erreur d'échange de jeton :", error);
@@ -97,7 +88,7 @@ async function exchangeCodeForToken(code) {
     return null;
 }
 
-// ANTI-FREEZE IPHONE : RESET COMPLET AU RETOUR AU PREMIER PLAN
+// ANTI-FREEZE IPHONE
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
         if (spotifyInterval) clearInterval(spotifyInterval);
@@ -107,7 +98,7 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
-// CONNEXION AVEC GENERATION PKCE
+// CONNEXION PKCE
 loginBtn.addEventListener('click', async () => {
     const codeVerifier = generateRandomString(64);
     const codeChallenge = await generateCodeChallenge(codeVerifier);
@@ -124,7 +115,7 @@ loginBtn.addEventListener('click', async () => {
     window.location.href = `https://accounts.spotify.com/authorize?${params.toString()}`;
 });
 
-// 3. SUIVI TEMPS REEL (CADENCE 3S ET TICKER 100MS POUR FLUIDITÉ)
+// 3. ENGINES DE SUIVI DE LECTURE (3S ET 100MS)
 function startTrackingSpotify(token) {
     if (spotifyInterval) clearInterval(spotifyInterval);
     if (syncTickerInterval) clearInterval(syncTickerInterval);
@@ -132,13 +123,13 @@ function startTrackingSpotify(token) {
     checkCurrentTrack(token);
     spotifyInterval = setInterval(() => checkCurrentTrack(token), 3000);
 
-    // Ticker haute fréquence (100ms) pour coller au rythme réel
+    // Ticker haute fréquence calibré à 100ms pour une fluidité Apple Music
     syncTickerInterval = setInterval(() => {
         if (isPlaying && parsedLyrics.length > 0) {
             currentTrackProgress += 100;
             updateLyricsHighlight(currentTrackProgress);
         }
-    }, 1000);
+    }, 100);
 }
 
 async function checkCurrentTrack(token) {
@@ -200,13 +191,12 @@ function updatePlayerUI(track) {
     }
 }
 
-// 4. RÉCUPÉRATION ET TRADUCTION DES PAROLES
+// 4. LOGIQUE DES PAROLES (LRCLIB)
 async function fetchRealLyrics(title, artist) {
     lyricsContainer.innerHTML = `<p class="placeholder-text">Recherche des paroles...</p>`;
     parsedLyrics = [];
 
     try {
-        // Nettoyage avancé
         const cleanTitle = title
             .replace(/-\s*Remastered.*/i, '')
             .replace(/-\s*Remaster.*/i, '')
@@ -276,7 +266,7 @@ function renderPlainLyrics(text) {
     lyricsContainer.appendChild(p);
 }
 
-// 5. ANIMATION ET CENTRAGE DYNAMIQUE VIA GETBOUNDINGCLIENTRECT
+// 5. CENTRAGE GÉOMÉTRIQUE FLUIDE iOS
 function updateLyricsHighlight(progress) {
     if (parsedLyrics.length === 0) return;
 
@@ -295,7 +285,6 @@ function updateLyricsHighlight(progress) {
             document.querySelectorAll('.lyric-line.active').forEach(el => el.classList.remove('active'));
             activeElement.classList.add('active');
 
-            // Calcul géométrique du centrage par rapport au viewport / conteneur
             const containerRect = lyricsSection.getBoundingClientRect();
             const elemRect = activeElement.getBoundingClientRect();
             
