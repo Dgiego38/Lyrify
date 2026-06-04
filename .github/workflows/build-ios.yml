@@ -21,11 +21,9 @@ jobs:
 
       - name: Préparer la structure et installer les outils
         run: |
-          # 1. Crée les fichiers de configuration de base
           echo '{"name": "lyrify", "version": "1.0.0", "dependencies": {"@capacitor/cli": "^6.0.0", "@capacitor/core": "^6.0.0", "@capacitor/ios": "^6.0.0"}}' > package.json
           echo '{"appId": "com.diego.lyrify", "appName": "Lyrify", "webDir": "www"}' > capacitor.config.json
           
-          # 2. Crée le dossier www indispensable pour Capacitor
           mkdir -p www
           cp index.html www/ 2>/dev/null || true
           cp login.html www/ 2>/dev/null || true
@@ -33,32 +31,32 @@ jobs:
           cp style.css www/ 2>/dev/null || true
           cp manifest.json www/ 2>/dev/null || true
 
-          # 3. Installe les modules de Capacitor
           npm install
 
       - name: Forcer la création du projet iOS natif
         run: |
-          # Crée le dossier natif iOS Xcode que le Mac réclame
           npx cap add ios
 
       - name: Synchroniser les fichiers web
         run: |
-          # Copie ton code javascript/html à l'intérieur de l'app iOS
           npx cap sync ios
 
+      # CONFIGURATION FORCÉE : On oblige Xcode à compiler directement dans le dossier "build" du projet
       - name: Compiler en application iOS native avec Xcode
         run: |
           xcodebuild -workspace ios/App/App.xcworkspace \
                      -scheme App \
                      -configuration Release \
                      -sdk iphoneos \
+                     -derivedDataPath build \
                      clean build \
                      CODE_SIGNING_ALLOWED=NO
 
+      # On adapte le chemin vers le nouveau dossier "build"
       - name: Empaqueter l'application en fichier .IPA pour iPhone
         run: |
           mkdir -p Payload
-          mv ios/App/build/Release-iphoneos/App.app Payload/
+          mv build/Build/Products/Release-iphoneos/App.app Payload/
           zip -r Lyrify-Apple.ipa Payload
 
       - name: Livrer le fichier IPA final
