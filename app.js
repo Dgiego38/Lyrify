@@ -6,7 +6,7 @@ const mainApp = document.getElementById('main-app');
 const lyricsSection = document.getElementById('lyrics-section');
 const lyricsContainer = document.getElementById('lyrics-container');
 
-// Nouveaux éléments pour l'affichage au milieu
+// Éléments d'affichage
 const playerBar = document.getElementById('player-bar');
 const loadingScreen = document.getElementById('loading-screen');
 const loadingArt = document.getElementById('loading-art');
@@ -79,13 +79,13 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
-// 2. TIMERS DE SUIVI
+// 2. TIMERS DE SUIVI (BOOSTÉ À 1.5s POUR LA RÉACTIVITÉ)
 function startTrackingSpotify(token) {
     if (spotifyInterval) clearInterval(spotifyInterval);
     if (syncTickerInterval) clearInterval(syncTickerInterval);
 
     checkCurrentTrack(token);
-    spotifyInterval = setInterval(() => checkCurrentTrack(token), 2000);
+    spotifyInterval = setInterval(() => checkCurrentTrack(token), 1500); // Plus rapide pour capter le changement de morceau
 
     syncTickerInterval = setInterval(() => {
         if (isPlaying && parsedLyrics.length > 0) {
@@ -129,7 +129,7 @@ async function checkCurrentTrack(token) {
     }
 }
 
-// 3. MISE À JOUR DE L'INTERFACE ET COULEUR AMBIANTE
+// 3. MISE À JOUR DE L'INTERFACE
 function updatePlayerUI(track) {
     const titleEl = document.getElementById('track-title');
     const artistEl = document.getElementById('track-artist');
@@ -153,7 +153,6 @@ function updatePlayerUI(track) {
     if (lastTrackId !== track.id) {
         lastTrackId = track.id;
         
-        // Attribution aux textes (haut et milieu)
         titleEl.innerText = track.title;
         artistEl.innerText = track.artist;
         artEl.src = track.albumArt;
@@ -162,22 +161,19 @@ function updatePlayerUI(track) {
         loadingArtist.innerText = track.artist;
         loadingArt.src = track.albumArt;
 
-        // ÉCRAN INITIAL : On réactive le mode attente au milieu avec la vague
+        // Mode attente initial rapide
         loadingScreen.style.display = "flex";
         loadingScreen.style.opacity = "1";
         waveContainer.style.display = "flex";
         playerBar.style.opacity = "0";
         lyricsSection.style.display = "none";
 
-        // ACTION MAGIQUE : Extraction de la couleur de la pochette pour le fond
+        // CHARGEMENT ULTRA-RAPIDE EN PARALLÈLE : On n'attend pas la fin de l'un pour lancer l'autre
         updateAmbientBackground(track.albumArt);
-
-        // Lancement de la recherche des paroles
         fetchLyricsAsync(track.title, track.artist);
     }
 }
 
-// FONCTION CRYPTO-VISUELLE : Analyse la pochette et crée le fond dégradé Apple Music
 function updateAmbientBackground(imgUrl) {
     const img = new Image();
     img.crossOrigin = "Anonymous"; 
@@ -188,22 +184,19 @@ function updateAmbientBackground(imgUrl) {
         canvas.width = 1;
         canvas.height = 1;
         
-        // Écrase l'image dans 1 seul pixel pour mélanger les couleurs
         ctx.drawImage(img, 0, 0, 1, 1);
         const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
         
-        // Assombrit un tout petit peu la couleur pour que le texte blanc reste lisible
         const dimFactor = 0.45;
         const finalR = Math.floor(r * dimFactor);
         const finalG = Math.floor(g * dimFactor);
         const finalB = Math.floor(b * dimFactor);
 
-        // Applique un magnifique dégradé radial immersif
         document.body.style.background = `radial-gradient(circle at center, rgb(${finalR + 20}, ${finalG + 20}, ${finalB + 25}) 0%, rgb(${Math.max(0, finalR - 30)}, ${Math.max(0, finalG - 30)}, ${Math.max(0, finalB - 30)}) 100%)`;
     };
 }
 
-// 4. RÉCUPÉRATION DES PAROLES (LRCLIB)
+// 4. RÉCUPÉRATION DES PAROLES (LRCLIB EXTRÊME)
 async function fetchLyricsAsync(title, artist) {
     parsedLyrics = [];
 
@@ -218,7 +211,7 @@ async function fetchLyricsAsync(title, artist) {
             const data = await response.json();
             if (data.syncedLyrics) {
                 parseLrc(data.syncedLyrics);
-                switchToLyricsMode(); // Succès -> On affiche les paroles !
+                switchToLyricsMode();
                 return;
             } else if (data.plainLyrics) {
                 renderPlainLyrics(data.plainLyrics);
@@ -227,7 +220,6 @@ async function fetchLyricsAsync(title, artist) {
             }
         }
 
-        // Plan B : Recherche classique
         const fallbackResponse = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(cleanTitle + ' ' + cleanArtist)}`);
         const fallbackData = await fallbackResponse.json();
 
@@ -244,13 +236,9 @@ async function fetchLyricsAsync(title, artist) {
             }
         }
 
-        // Si aucune parole trouvée, on reste sur l'écran du milieu mais on coupe la vague
         waveContainer.style.display = "none";
-        const noLyricsInfo = document.createElement('div');
-        noLyricsInfo.className = "placeholder-text";
-        noLyricsInfo.style.marginTop = "10px";
-        noLyricsInfo.innerText = "Paroles indisponibles 😢";
-        loadingScreen.appendChild(noLyricsInfo);
+        lyricsContainer.innerHTML = `<p class="placeholder-text">Paroles indisponibles 😢</p>`;
+        switchToLyricsMode();
 
     } catch (error) {
         console.error("Erreur paroles:", error);
@@ -258,21 +246,42 @@ async function fetchLyricsAsync(title, artist) {
     }
 }
 
-// TRANSITION : Masque le chargement central et affiche les paroles + la barre du haut
 function switchToLyricsMode() {
     loadingScreen.style.opacity = "0";
     setTimeout(() => {
         loadingScreen.style.display = "none";
         lyricsSection.style.display = "block";
         playerBar.style.opacity = "1";
-    }, 400); // Temps de la transition CSS fade-out
+        lyricsSection.scrollTop = 0;
+    }, 400);
 }
 
 function parseLrc(lrcText) {
     parsedLyrics = [];
     lyricsContainer.innerHTML = "";
+
     const lines = lrcText.split('\n');
     const timeRegEx = /\[(\d+):(\d+)\.(\d+)\]/;
+
+    let firstLineTime = 0;
+    
+    for (let i = 0; i < lines.length; i++) {
+        const m = timeRegEx.exec(lines[i]);
+        if (m) {
+            firstLineTime = (parseInt(m[1]) * 60 * 1000) + (parseInt(m[2]) * 1000) + parseInt(m[3].padEnd(3, '0').substring(0, 3));
+            break;
+        }
+    }
+
+    // Ajout de la vague d'intro seulement s'il y a un blanc musical significatif au départ
+    if (firstLineTime > 1500) {
+        parsedLyrics.push({ time: 0, text: "intro-wave", id: "line-intro" });
+        const introDiv = document.createElement('div');
+        introDiv.id = "line-intro";
+        introDiv.className = "lyric-line active intro-wave";
+        introDiv.innerHTML = "<span></span><span></span><span></span>";
+        lyricsContainer.appendChild(introDiv);
+    }
 
     lines.forEach((line, index) => {
         const match = timeRegEx.exec(line);
@@ -305,7 +314,7 @@ function renderPlainLyrics(text) {
     lyricsContainer.appendChild(p);
 }
 
-// 5. ANIMATION DES PAROLES ACTIVE
+// 5. ANIMATION ET SUPPRESSION DÉFINITIVE DE LA VAGUE D'INTRO
 function updateLyricsHighlight(progress) {
     if (parsedLyrics.length === 0) return;
 
@@ -321,8 +330,23 @@ function updateLyricsHighlight(progress) {
     if (activeLine) {
         const activeElement = document.getElementById(activeLine.id);
         if (activeElement && !activeElement.classList.contains('active')) {
-            document.querySelectorAll('.lyric-line.active').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.lyric-line.active').forEach(el => {
+                el.classList.remove('active');
+            });
             activeElement.classList.add('active');
+
+            // AJUSTEMENT DEMANDÉ : Si on a dépassé l'intro et qu'une vraie ligne commence, on supprime la vague définitivement
+            if (activeLine.id !== "line-intro") {
+                const introElement = document.getElementById('line-intro');
+                if (introElement) {
+                    introElement.remove(); // Supprime l'élément HTML complet
+                    // Nettoie aussi le tableau JS pour éviter d'y revenir
+                    parsedLyrics = parsedLyrics.filter(item => item.id !== "line-intro");
+                }
+            } else {
+                lyricsSection.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
 
             const containerTop = lyricsSection.getBoundingClientRect().top;
             const elementTop = activeElement.getBoundingClientRect().top;
