@@ -13,18 +13,28 @@
 
     <div id="main-app" class="hidden">
         
-        <div id="player-bar">
-            <img id="album-art" src="https://via.placeholder.com/60" alt="Pochette d'album">
+        <div id="player-bar" style="opacity: 0;">
+            <img id="album-art" src="" alt="Pochette">
             <div id="track-info">
                 <div id="track-title">Aucune musique</div>
-                <div id="track-artist">Lancez un morceau sur Spotify</div>
+                <div id="track-artist">Lancez un morceau</div>
             </div>
         </div>
 
-        <div id="lyrics-section">
-            <div id="lyrics-container">
-                <p class="placeholder-text">Connexion à votre flux Spotify...</p>
+        <div id="loading-screen">
+            <img id="loading-art" src="https://via.placeholder.com/300" alt="Pochette Album">
+            <div id="loading-title">Aucune musique</div>
+            <div id="loading-artist">Lancez un morceau sur Spotify</div>
+            <div class="wave-loader" id="wave-container">
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
             </div>
+        </div>
+
+        <div id="lyrics-section" style="display: none;">
+            <div id="lyrics-container"></div>
         </div>
 
     </div>

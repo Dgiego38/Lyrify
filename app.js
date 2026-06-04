@@ -6,6 +6,14 @@ const mainApp = document.getElementById('main-app');
 const lyricsSection = document.getElementById('lyrics-section');
 const lyricsContainer = document.getElementById('lyrics-container');
 
+// Nouveaux éléments pour l'affichage au milieu
+const playerBar = document.getElementById('player-bar');
+const loadingScreen = document.getElementById('loading-screen');
+const loadingArt = document.getElementById('loading-art');
+const loadingTitle = document.getElementById('loading-title');
+const loadingArtist = document.getElementById('loading-artist');
+const waveContainer = document.getElementById('wave-container');
+
 let spotifyInterval = null;
 let syncTickerInterval = null;
 
@@ -14,7 +22,7 @@ let currentTrackProgress = 0;
 let isPlaying = false;
 let parsedLyrics = []; 
 
-// 1. CYCLE DE VIE DE L'APPLICATION
+// 1. DÉMARRAGE
 window.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
@@ -71,7 +79,7 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
-// 2. SUIVI EN TEMPS RÉEL
+// 2. TIMERS DE SUIVI
 function startTrackingSpotify(token) {
     if (spotifyInterval) clearInterval(spotifyInterval);
     if (syncTickerInterval) clearInterval(syncTickerInterval);
@@ -121,17 +129,22 @@ async function checkCurrentTrack(token) {
     }
 }
 
-// 3. INTERFACE GRAPHIQUE
+// 3. MISE À JOUR DE L'INTERFACE ET COULEUR AMBIANTE
 function updatePlayerUI(track) {
     const titleEl = document.getElementById('track-title');
     const artistEl = document.getElementById('track-artist');
     const artEl = document.getElementById('album-art');
 
     if (!track) {
-        titleEl.innerText = "Aucune musique";
-        artistEl.innerText = "Lancez un morceau sur Spotify";
-        artEl.src = "https://via.placeholder.com/60";
-        lyricsContainer.innerHTML = `<p class="placeholder-text">Lancez une musique sur Spotify.</p>`;
+        document.body.style.background = "#000000";
+        loadingTitle.innerText = "Aucune musique";
+        loadingArtist.innerText = "Lancez un morceau sur Spotify";
+        loadingArt.src = "https://via.placeholder.com/300";
+        loadingScreen.style.display = "flex";
+        loadingScreen.style.opacity = "1";
+        playerBar.style.opacity = "0";
+        lyricsSection.style.display = "none";
+        waveContainer.style.display = "none";
         parsedLyrics = [];
         lastTrackId = "";
         return;
@@ -140,18 +153,58 @@ function updatePlayerUI(track) {
     if (lastTrackId !== track.id) {
         lastTrackId = track.id;
         
+        // Attribution aux textes (haut et milieu)
         titleEl.innerText = track.title;
         artistEl.innerText = track.artist;
         artEl.src = track.albumArt;
 
-        // Lancement en tâche de fond (asynchrone) pour ne pas figer l'application
+        loadingTitle.innerText = track.title;
+        loadingArtist.innerText = track.artist;
+        loadingArt.src = track.albumArt;
+
+        // ÉCRAN INITIAL : On réactive le mode attente au milieu avec la vague
+        loadingScreen.style.display = "flex";
+        loadingScreen.style.opacity = "1";
+        waveContainer.style.display = "flex";
+        playerBar.style.opacity = "0";
+        lyricsSection.style.display = "none";
+
+        // ACTION MAGIQUE : Extraction de la couleur de la pochette pour le fond
+        updateAmbientBackground(track.albumArt);
+
+        // Lancement de la recherche des paroles
         fetchLyricsAsync(track.title, track.artist);
     }
 }
 
-// 4. RÉCUPÉRATION FLUIDE SANS BLOCAGE (LRCLIB STABLE)
+// FONCTION CRYPTO-VISUELLE : Analyse la pochette et crée le fond dégradé Apple Music
+function updateAmbientBackground(imgUrl) {
+    const img = new Image();
+    img.crossOrigin = "Anonymous"; 
+    img.src = imgUrl;
+    img.onload = function() {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 1;
+        canvas.height = 1;
+        
+        // Écrase l'image dans 1 seul pixel pour mélanger les couleurs
+        ctx.drawImage(img, 0, 0, 1, 1);
+        const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+        
+        // Assombrit un tout petit peu la couleur pour que le texte blanc reste lisible
+        const dimFactor = 0.45;
+        const finalR = Math.floor(r * dimFactor);
+        const finalG = Math.floor(g * dimFactor);
+        const finalB = Math.floor(b * dimFactor);
+
+        // Applique un magnifique dégradé radial immersif
+        document.body.style.background = `radial-gradient(circle at center, rgb(${finalR + 20}, ${finalG + 20}, ${finalB + 25}) 0%, rgb(${Math.max(0, finalR - 30)}, ${Math.max(0, finalG - 30)}, ${Math.max(0, finalB - 30)}) 100%)`;
+    };
+}
+
+// 4. RÉCUPÉRATION DES PAROLES (LRCLIB)
 async function fetchLyricsAsync(title, artist) {
-    // On ne vide pas l'écran agressivement avec un message de chargement qui fait clignoter l'app
     parsedLyrics = [];
 
     try {
@@ -165,14 +218,16 @@ async function fetchLyricsAsync(title, artist) {
             const data = await response.json();
             if (data.syncedLyrics) {
                 parseLrc(data.syncedLyrics);
+                switchToLyricsMode(); // Succès -> On affiche les paroles !
                 return;
             } else if (data.plainLyrics) {
                 renderPlainLyrics(data.plainLyrics);
+                switchToLyricsMode();
                 return;
             }
         }
 
-        // Plan B : Recherche classique si la recherche exacte échoue
+        // Plan B : Recherche classique
         const fallbackResponse = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(cleanTitle + ' ' + cleanArtist)}`);
         const fallbackData = await fallbackResponse.json();
 
@@ -180,19 +235,37 @@ async function fetchLyricsAsync(title, artist) {
             const bestMatch = fallbackData[0];
             if (bestMatch.syncedLyrics) {
                 parseLrc(bestMatch.syncedLyrics);
+                switchToLyricsMode();
                 return;
             } else if (bestMatch.plainLyrics) {
                 renderPlainLyrics(bestMatch.plainLyrics);
+                switchToLyricsMode();
                 return;
             }
         }
 
-        lyricsContainer.innerHTML = `<p class="placeholder-text">Paroles indisponibles 😢</p>`;
+        // Si aucune parole trouvée, on reste sur l'écran du milieu mais on coupe la vague
+        waveContainer.style.display = "none";
+        const noLyricsInfo = document.createElement('div');
+        noLyricsInfo.className = "placeholder-text";
+        noLyricsInfo.style.marginTop = "10px";
+        noLyricsInfo.innerText = "Paroles indisponibles 😢";
+        loadingScreen.appendChild(noLyricsInfo);
 
     } catch (error) {
         console.error("Erreur paroles:", error);
-        lyricsContainer.innerHTML = `<p class="placeholder-text">Erreur de chargement.</p>`;
+        waveContainer.style.display = "none";
     }
+}
+
+// TRANSITION : Masque le chargement central et affiche les paroles + la barre du haut
+function switchToLyricsMode() {
+    loadingScreen.style.opacity = "0";
+    setTimeout(() => {
+        loadingScreen.style.display = "none";
+        lyricsSection.style.display = "block";
+        playerBar.style.opacity = "1";
+    }, 400); // Temps de la transition CSS fade-out
 }
 
 function parseLrc(lrcText) {
@@ -232,7 +305,7 @@ function renderPlainLyrics(text) {
     lyricsContainer.appendChild(p);
 }
 
-// 5. ANIMATION ET CENTRAGE
+// 5. ANIMATION DES PAROLES ACTIVE
 function updateLyricsHighlight(progress) {
     if (parsedLyrics.length === 0) return;
 

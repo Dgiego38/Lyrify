@@ -14,6 +14,8 @@ body {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    /* Transition fluide pour le changement de couleur de fond */
+    transition: background 1.2s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .hidden {
@@ -34,14 +36,15 @@ body {
     display: flex;
     align-items: center;
     padding: calc(20px + env(safe-area-inset-top)) 24px 24px 24px;
-    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.9) 60%, rgba(0, 0, 0, 0));
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 100%);
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     z-index: 10;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    transition: opacity 0.5s ease;
 }
 
 #album-art {
@@ -69,7 +72,7 @@ body {
 }
 
 #track-artist {
-    color: rgba(255, 255, 255, 0.55);
+    color: rgba(255, 255, 255, 0.6);
     font-size: 0.85rem;
     white-space: nowrap;
     overflow: hidden;
@@ -84,14 +87,13 @@ body {
     overflow-y: scroll;
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: none; /* Masque la barre sur Firefox */
-    padding-top: 40vh;    /* Repousse le premier couplet vers le centre */
-    padding-bottom: 50vh; /* Permet à la dernière ligne de monter au centre */
+    scrollbar-width: none;
+    padding-top: 42vh;
+    padding-bottom: 50vh;
     padding-left: 24px;
     padding-right: 24px;
 }
 
-/* Masque la barre de défilement sur Safari et Chrome */
 #lyrics-section::-webkit-scrollbar {
     display: none;
 }
@@ -99,41 +101,108 @@ body {
 #lyrics-container {
     display: flex;
     flex-direction: column;
-    gap: 24px; /* Espace constant entre chaque ligne de parole */
+    gap: 24px;
     width: 100%;
     max-width: 600px;
     margin: 0 auto;
 }
 
-/* DESIGN DES LIGNES INDIVIDUELLES */
+/* DESIGN DES LIGNES DE PAROLES */
 .lyric-line {
-    font-size: 1.65rem;
+    font-size: 1.7rem;
     font-weight: 700;
     line-height: 1.3;
     letter-spacing: -0.5px;
-    color: rgba(255, 255, 255, 0.3); /* Paroles éteintes par défaut */
+    color: rgba(255, 255, 255, 0.25);
     transform: scale(0.96);
     transform-origin: left center;
-    transition: color 0.35s cubic-bezier(0.25, 1, 0.5, 1), 
-                transform 0.35s cubic-bezier(0.25, 1, 0.5, 1), 
-                filter 0.35s ease;
+    transition: color 0.4s ease, transform 0.4s ease, filter 0.4s ease;
     filter: blur(0.5px);
-    cursor: pointer;
 }
 
-/* LIGNE ACTIVE EN TRAIN D'ÊTRE CHANTÉE */
 .lyric-line.active {
-    color: #ffffff; /* Illumination blanche intense */
+    color: #ffffff;
     transform: scale(1.04);
     filter: blur(0px);
 }
 
-/* ÉCRAN DE TEXTE INFORMATIF / TEXTE SIMPLE */
+/* ÉCRAN D'ATTENTE AU MILIEU (STYLE LECTEUR COMPLET) */
+#loading-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 24px;
+    text-align: center;
+    z-index: 5;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+#loading-art {
+    width: 260px;
+    height: 260px;
+    border-radius: 16px;
+    object-fit: cover;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+    margin-bottom: 28px;
+}
+
+#loading-title {
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+    max-width: 85%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#loading-artist {
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.6);
+    font-weight: 500;
+    margin-bottom: 32px;
+    max-width: 80%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ANIMATION DES POINTS EN VAGUES */
+.wave-loader {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    height: 20px;
+}
+
+.wave-loader span {
+    width: 6px;
+    height: 6px;
+    background-color: #ffffff;
+    border-radius: 50%;
+    animation: wave-dots 1.2s infinite ease-in-out;
+}
+
+.wave-loader span:nth-child(2) { animation-delay: 0.15s; }
+.wave-loader span:nth-child(3) { animation-delay: 0.3s; }
+.wave-loader span:nth-child(4) { animation-delay: 0.45s; }
+
+@keyframes wave-dots {
+    0%, 100% { transform: translateY(0); opacity: 0.3; }
+    50% { transform: translateY(-10px); opacity: 1; }
+}
+
 .placeholder-text {
     font-size: 1.2rem;
     color: rgba(255, 255, 255, 0.5);
     text-align: center;
-    line-height: 1.6;
-    padding: 40px 0;
     font-weight: 500;
 }
