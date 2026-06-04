@@ -121,19 +121,22 @@ button:active {
     transform: scale(0.95);
 }
 
-/* CONTENEUR STYLE APPLE MUSIC LYRICS */
+/* CONTENEUR STYLE APPLE MUSIC LYRICS (CORRIGÉ POUR DÉFILEMENT IPHONE) */
 #lyrics-section {
     flex: 1;
+    height: 50vh; /* Fixe une hauteur pour forcer le navigateur à faire défiler l'intérieur */
     background: transparent;
-    overflow-y: scroll;
+    overflow-y: auto;
+    display: block;
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
-    padding: 40vh 0; /* Permet à la ligne active de toujours se centrer à l'écran */
-    scrollbar-width: none; /* Cache la scrollbar sur Firefox */
+    padding-top: 35vh;    /* Pousse les premières lignes vers le centre */
+    padding-bottom: 45vh; /* Laisse de l'espace en bas pour les dernières lignes */
+    scrollbar-width: none;
 }
 
 #lyrics-section::-webkit-scrollbar {
-    display: none; /* Cache la scrollbar sur iPhone/Chrome */
+    display: none;
 }
 
 #lyrics-container {
