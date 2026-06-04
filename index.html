@@ -11,15 +11,15 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Lyrify">
-    <link rel="apple-touch-icon" href="https://placehold.co/512x512/000000/ffffff?text=Lyrify">
+    <link rel="apple-touch-icon" href="icons/icon-512.png">
 </head>
 <body>
 
     <section id="welcome-screen" class="hidden">
         <div class="welcome-content">
-            <div class="app-logo">🎶</div>
-            <h1>Lyrify</h1>
-            <p>Affichez vos paroles de chansons en temps réel avec un style fluide inspiré d'Apple Music.</p>
+            <span class="emoji">👋</span>
+            <h1>Bonjour !</h1>
+            <p>Bienvenue sur <strong>Lyrify</strong>. L'application qui affiche vos paroles en temps réel pendant que vous écoutez votre musique sur Spotify.</p>
             <button id="welcome-login-btn">Se connecter avec Spotify</button>
         </div>
     </section>
@@ -32,7 +32,7 @@
         <main>
             <section id="player-section">
                 <div id="track-card">
-                    <img id="album-art" src="https://placehold.co/60x60/121212/ffffff?text=Lyrify" alt="Album Art">
+                    <img id="album-art" src="https://via.placeholder.com/60" alt="Album Art">
                     <div class="track-info">
                         <h2 id="track-title">Aucune musique</h2>
                         <p id="track-artist">Lancez un morceau sur Spotify</p>
@@ -42,7 +42,7 @@
 
             <section id="lyrics-section">
                 <div id="lyrics-container">
-                    <p class="placeholder-text">En attente de Spotify...</p>
+                    <p class="placeholder-text">Recherche de la musique en cours...</p>
                 </div>
             </section>
         </main>
